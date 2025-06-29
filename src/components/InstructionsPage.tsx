@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { BookOpen, Download, Github, ExternalLink, Copy, CheckCircle, Server, Cloud, Settings } from 'lucide-react';
+import { BookOpen, Download, Github, ExternalLink, Copy, CheckCircle, Server, Cloud, Settings, ArrowLeft } from 'lucide-react';
 
-const InstructionsPage: React.FC = () => {
+interface InstructionsPageProps {
+  onBack?: () => void;
+}
+
+const InstructionsPage: React.FC<InstructionsPageProps> = ({ onBack }) => {
   const [copiedText, setCopiedText] = useState<string>('');
 
   const copyToClipboard = (text: string, label: string) => {
@@ -10,18 +14,25 @@ const InstructionsPage: React.FC = () => {
     setTimeout(() => setCopiedText(''), 2000);
   };
 
-  const envTemplate = `# Firebase Configuration
-VITE_FIREBASE_API_KEY=your_firebase_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id`;
+  const supabaseEnvTemplate = `# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`;
 
   return (
-    <div className="p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8">
       <div className="max-w-6xl mx-auto">
+        {onBack && (
+          <div className="mb-8">
+            <button
+              onClick={onBack}
+              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Login
+            </button>
+          </div>
+        )}
+
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Setup Instructions</h1>
           <p className="text-gray-600 text-lg">Complete guide to deploy and customize Craftly AI</p>
@@ -43,8 +54,8 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id`;
             
             <div className="bg-purple-50 rounded-2xl p-6 text-center">
               <Settings className="text-purple-600 mx-auto mb-4" size={48} />
-              <h3 className="font-semibold text-gray-800 mb-2">2. Configure Services</h3>
-              <p className="text-sm text-gray-600">Set up Firebase and AI APIs</p>
+              <h3 className="font-semibold text-gray-800 mb-2">2. Configure Supabase</h3>
+              <p className="text-sm text-gray-600">Set up Supabase database and storage</p>
             </div>
             
             <div className="bg-green-50 rounded-2xl p-6 text-center">
@@ -93,44 +104,53 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id`;
           </div>
         </div>
 
-        {/* Firebase Setup */}
+        {/* Supabase Setup */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8">
           <div className="flex items-center mb-6">
-            <Server className="text-orange-500 mr-3" size={24} />
-            <h2 className="text-2xl font-bold text-gray-800">Firebase Configuration</h2>
+            <Server className="text-green-500 mr-3" size={24} />
+            <h2 className="text-2xl font-bold text-gray-800">Supabase Configuration</h2>
           </div>
           
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 1: Create Firebase Project</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 1: Create Supabase Project</h3>
               <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                <li>Go to <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Firebase Console</a></li>
-                <li>Click "Create a project"</li>
-                <li>Enter project name and follow setup steps</li>
-                <li>Enable Authentication and Firestore Database</li>
+                <li>Go to <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Supabase</a></li>
+                <li>Click "Start your project" and sign in</li>
+                <li>Create a new project with your preferred name</li>
+                <li>Wait for the project to be ready (2-3 minutes)</li>
               </ol>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 2: Get Configuration</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 2: Configure Database</h3>
               <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                <li>Go to Project Settings → General</li>
-                <li>Scroll to "Your apps" section</li>
-                <li>Click "Web app" icon and register your app</li>
-                <li>Copy the configuration object</li>
+                <li>Go to Table Editor in your Supabase dashboard</li>
+                <li>Create tables for users, resumes, and cover letters</li>
+                <li>Set up Row Level Security (RLS) policies</li>
+                <li>Configure authentication settings</li>
               </ol>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 3: Environment Variables</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 3: Get API Keys</h3>
+              <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Go to Settings → API in your Supabase dashboard</li>
+                <li>Copy your project URL and anon public key</li>
+                <li>Add these to your environment variables</li>
+              </ol>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Step 4: Environment Variables</h3>
               <div className="bg-gray-800 rounded-xl p-4 text-white font-mono text-sm relative">
                 <button
-                  onClick={() => copyToClipboard(envTemplate, 'env')}
+                  onClick={() => copyToClipboard(supabaseEnvTemplate, 'supabase-env')}
                   className="absolute top-4 right-4 text-blue-400 hover:text-blue-300"
                 >
-                  {copiedText === 'env' ? <CheckCircle size={16} /> : <Copy size={16} />}
+                  {copiedText === 'supabase-env' ? <CheckCircle size={16} /> : <Copy size={16} />}
                 </button>
-                <pre className="pr-8">{envTemplate}</pre>
+                <pre className="pr-8">{supabaseEnvTemplate}</pre>
               </div>
               <p className="text-sm text-gray-600 mt-2">
                 Create a <code className="bg-gray-100 px-2 py-1 rounded">.env</code> file in your project root with these variables.
@@ -255,6 +275,7 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id`;
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Setup Instructions</h3>
               <ol className="list-decimal list-inside space-y-2 text-gray-700">
                 <li>After deployment, visit your app and create an account</li>
+                <li>Or use demo login: <strong>gopichand@gmail.com</strong> / <strong>gopigopi</strong></li>
                 <li>Go to "AI Models" page in the sidebar</li>
                 <li>Click "Add Model" and select your preferred AI provider</li>
                 <li>Enter your API key and test the connection</li>
@@ -280,7 +301,8 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id`;
                 <li>• Multiple AI model support</li>
                 <li>• Rich text cover letter editor</li>
                 <li>• PDF export functionality</li>
-                <li>• Secure data storage</li>
+                <li>• Supabase storage integration</li>
+                <li>• File storage for resumes</li>
                 <li>• Responsive design</li>
                 <li>• Open source & self-hosted</li>
               </ul>

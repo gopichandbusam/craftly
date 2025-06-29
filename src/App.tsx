@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
-import { loadResumeFromFirebase } from './services/optimizedFirebaseStorage';
+import { loadResumeFromSupabase } from './services/supabaseStorage';
 import { trackUserAction, trackError } from './services/optimizedAnalytics';
 import { initializeSecurity } from './services/securityHeaders';
 import LoginPage from './components/LoginPage';
+import InstructionsPage from './components/InstructionsPage';
 import Sidebar from './components/Sidebar';
 import HomePage from './components/HomePage';
 import PromptsPage from './components/PromptsPage';
 import AIModelsPage from './components/AIModelsPage';
-import InstructionsPage from './components/InstructionsPage';
 import EditResumeData from './components/EditResumeData';
 import GenerateCoverLetter from './components/GenerateCoverLetter';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -21,10 +21,19 @@ function App() {
   const [currentPage, setCurrentPage] = useState<AppPage>('home');
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   // Initialize security
   useEffect(() => {
     initializeSecurity();
+  }, []);
+
+  // Check if we should show instructions (from URL or state)
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/instructions' || path === '/setup') {
+      setShowInstructions(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -33,7 +42,7 @@ function App() {
         console.log('🔄 Loading resume data...');
         
         try {
-          const savedResume = await loadResumeFromFirebase();
+          const savedResume = await loadResumeFromSupabase();
           if (savedResume) {
             console.log('✅ Resume data loaded');
             setResumeData(savedResume);
@@ -57,6 +66,12 @@ function App() {
     trackUserAction('resume_processed');
   };
 
+  // Handle back from instructions
+  const handleBackFromInstructions = () => {
+    setShowInstructions(false);
+    window.history.pushState({}, '', '/');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -69,10 +84,24 @@ function App() {
     );
   }
 
+  // Show instructions page without requiring login
+  if (showInstructions) {
+    return (
+      <ErrorBoundary>
+        <InstructionsPage onBack={handleBackFromInstructions} />
+      </ErrorBoundary>
+    );
+  }
+
   if (!user) {
     return (
       <ErrorBoundary>
-        <LoginPage onLogin={login} onSignup={signup} onGoogleSignIn={signInWithGoogle} />
+        <LoginPage 
+          onLogin={login} 
+          onSignup={signup} 
+          onGoogleSignIn={signInWithGoogle}
+          onShowInstructions={() => setShowInstructions(true)}
+        />
       </ErrorBoundary>
     );
   }
@@ -86,7 +115,7 @@ function App() {
       case 'ai-models':
         return <AIModelsPage />;
       case 'instructions':
-        return <InstructionsPage />;
+        return <InstructionsPage onBack={() => setCurrentPage('home')} />;
       case 'edit-resume':
         return <EditResumeData resumeData={resumeData} onResumeUpdate={setResumeData} />;
       case 'generate':

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, Trash2, Edit3, User, Mail, Phone, MapPin, Linkedin } from 'lucide-react';
 import { ResumeData } from '../types';
-import { updateResumeInFirebase } from '../services/optimizedFirebaseStorage';
+import { updateResumeInSupabase } from '../services/supabaseStorage';
 import { trackUserAction } from '../services/optimizedAnalytics';
 
 interface EditResumeDataProps {
@@ -94,10 +94,10 @@ const EditResumeData: React.FC<EditResumeDataProps> = ({ resumeData, onResumeUpd
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateResumeInFirebase(formData);
+      await updateResumeInSupabase(formData);
       onResumeUpdate(formData);
       trackUserAction('resume_edited');
-      alert('Resume updated successfully!');
+      alert('Resume updated successfully in Supabase!');
     } catch (error) {
       console.error('Failed to save resume:', error);
       alert('Failed to save resume. Please try again.');
@@ -131,7 +131,7 @@ const EditResumeData: React.FC<EditResumeDataProps> = ({ resumeData, onResumeUpd
             className="bg-gradient-to-r from-green-400 to-blue-400 text-white px-6 py-3 rounded-xl font-semibold hover:from-green-500 hover:to-blue-500 transition-all duration-200 flex items-center disabled:opacity-50"
           >
             <Save size={20} className="mr-2" />
-            {isSaving ? 'Saving...' : 'Save Changes'}
+            {isSaving ? 'Saving to Supabase...' : 'Save Changes'}
           </button>
         </div>
 

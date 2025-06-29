@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Download, Edit3, Sparkles, Building, FileText, AlertCircle, Settings } from 'lucide-react';
 import { ResumeData, JobApplication } from '../types';
 import { generateCoverLetter } from '../services/geminiService';
-import { loadApplicationFromFirebase, saveApplicationToFirebase, updateApplicationInFirebase } from '../services/optimizedFirebaseStorage';
+import { loadApplicationFromSupabase, saveApplicationToSupabase, updateApplicationInSupabase } from '../services/supabaseStorage';
 import { loadCustomPrompts } from '../services/promptStorage';
 import { trackCoverLetterFlow, trackError, trackFeatureUsage } from '../services/optimizedAnalytics';
 import RichTextEditor from './RichTextEditor';
@@ -34,7 +34,7 @@ const GenerateCoverLetter: React.FC<GenerateCoverLetterProps> = memo(({ resumeDa
     const loadSavedData = async () => {
       try {
         const [savedApp, prompts] = await Promise.all([
-          loadApplicationFromFirebase(),
+          loadApplicationFromSupabase(),
           loadCustomPrompts()
         ]);
         
@@ -102,8 +102,8 @@ const GenerateCoverLetter: React.FC<GenerateCoverLetterProps> = memo(({ resumeDa
 
       setApplication(newApplication);
       
-      // Save to optimized storage
-      await saveApplicationToFirebase(newApplication);
+      // Save to Supabase
+      await saveApplicationToSupabase(newApplication);
       
       trackCoverLetterFlow('generate', {
         success: true,
@@ -128,7 +128,7 @@ const GenerateCoverLetter: React.FC<GenerateCoverLetterProps> = memo(({ resumeDa
       trackCoverLetterFlow('edit');
       
       try {
-        await updateApplicationInFirebase(updatedApplication);
+        await updateApplicationInSupabase(updatedApplication);
       } catch (error) {
         console.warn('Failed to save edit:', error);
       }
@@ -205,7 +205,7 @@ const GenerateCoverLetter: React.FC<GenerateCoverLetterProps> = memo(({ resumeDa
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Generate Cover Letter</h1>
-          <p className="text-gray-600 text-lg">Create personalized cover letters with AI</p>
+          <p className="text-gray-600 text-lg">Create personalized cover letters with AI - Stored in Supabase</p>
         </div>
 
         {error && (

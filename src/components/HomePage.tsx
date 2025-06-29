@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader, Sparkles } from 'lucide-react';
 import { ResumeData } from '../types';
 import { parseResumeFromText, parseResumeFromPDF } from '../services/resumeParser';
-import { saveResumeToFirebase } from '../services/optimizedFirebaseStorage';
+import { saveResumeToSupabase } from '../services/supabaseStorage';
 import { trackResumeFlow, trackError } from '../services/optimizedAnalytics';
 
 interface HomePageProps {
@@ -45,10 +45,10 @@ const HomePage: React.FC<HomePageProps> = memo(({ resumeData, onResumeProcessed 
         resumeData = await parseResumeFromText(text);
       }
       
-      setProcessingStage('Saving data...');
+      setProcessingStage('Saving to Supabase...');
       
-      // Save to optimized storage
-      await saveResumeToFirebase(resumeData);
+      // Save to Supabase storage with file
+      await saveResumeToSupabase(resumeData, file);
       
       const processingTime = Date.now() - startTime;
       
@@ -128,7 +128,7 @@ const HomePage: React.FC<HomePageProps> = memo(({ resumeData, onResumeProcessed 
               <CheckCircle className="text-green-500 mr-3" size={32} />
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">Resume Loaded</h2>
-                <p className="text-gray-600">Ready to generate cover letters</p>
+                <p className="text-gray-600">Stored securely in Supabase</p>
               </div>
             </div>
             
@@ -213,12 +213,12 @@ const HomePage: React.FC<HomePageProps> = memo(({ resumeData, onResumeProcessed 
                 <div className="bg-blue-50 rounded-xl p-4 inline-block">
                   <h4 className="font-semibold text-gray-800 mb-2 flex items-center justify-center">
                     <Sparkles className="mr-2 text-blue-500" size={20} />
-                    AI-Powered Processing
+                    Powered by Supabase
                   </h4>
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p>• Fast local processing with AI analysis</p>
-                    <p>• Smart cloud storage with caching</p>
-                    <p>• Secure data handling and privacy</p>
+                    <p>• Secure file storage in Supabase Storage</p>
+                    <p>• Fast AI processing with data persistence</p>
+                    <p>• Your data, your control, your hosting</p>
                   </div>
                 </div>
               </div>

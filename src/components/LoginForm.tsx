@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, User, Loader } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Loader, Coffee } from 'lucide-react';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -72,6 +72,24 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
     }
   };
 
+  const handleDemoLogin = async () => {
+    setEmail('gopichand@gmail.com');
+    setPassword('gopigopi');
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const result = await onLogin('gopichand@gmail.com', 'gopigopi');
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
+    } catch (error) {
+      setError('Demo login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setEmail('');
     setPassword('');
@@ -95,6 +113,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
           {isLogin ? 'Sign in to your account' : 'Join Craftly AI today'}
         </p>
       </div>
+
+      {/* Demo Login Button */}
+      <button
+        onClick={handleDemoLogin}
+        disabled={isLoading || isGoogleLoading}
+        className="w-full bg-gradient-to-r from-orange-400 to-red-400 text-white py-4 rounded-2xl font-semibold hover:from-orange-500 hover:to-red-500 transform hover:scale-[1.02] transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mb-4"
+      >
+        {isLoading && email === 'gopichand@gmail.com' ? (
+          <>
+            <Loader className="animate-spin mr-2" size={20} />
+            Signing in...
+          </>
+        ) : (
+          <>
+            <Coffee className="mr-2" size={20} />
+            Demo Login (Development)
+          </>
+        )}
+      </button>
 
       {/* Google Sign-In Button */}
       <button
@@ -188,7 +225,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
           disabled={isLoading || isGoogleLoading}
           className="w-full bg-gradient-to-r from-blue-400 to-purple-400 text-white py-4 rounded-2xl font-semibold hover:from-blue-500 hover:to-purple-500 transform hover:scale-[1.02] transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
         >
-          {isLoading ? (
+          {isLoading && email !== 'gopichand@gmail.com' ? (
             <>
               <Loader className="animate-spin mr-2" size={20} />
               {isLogin ? 'Signing In...' : 'Creating Account...'}

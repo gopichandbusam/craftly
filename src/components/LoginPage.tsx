@@ -6,9 +6,10 @@ interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   onSignup: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   onGoogleSignIn: () => Promise<{ success: boolean; error?: string }>;
+  onShowInstructions: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup, onGoogleSignIn }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup, onGoogleSignIn, onShowInstructions }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -95,13 +96,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup, onGoogleSignIn
                 <Github size={20} className="text-gray-700" />
                 <span className="text-sm font-semibold text-gray-700">Open Source</span>
               </div>
-              <a
-                href="/instructions"
+              <button
+                onClick={onShowInstructions}
                 className="bg-blue-500/20 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 hover:bg-blue-500/30 transition-all duration-200 text-blue-700 hover:text-blue-800"
               >
                 <ExternalLink size={16} />
                 <span className="text-sm font-semibold">Setup Guide</span>
-              </a>
+              </button>
             </div>
           </div>
 
