@@ -78,6 +78,27 @@ export const trackFeatureUsage = (feature: string) => {
   AnalyticsOptimizer.trackEvent('feature_usage', { feature });
 };
 
+// User authentication tracking functions
+export const trackUserSignup = (method: string, success: boolean) => {
+  AnalyticsOptimizer.trackEvent('user_signup', { method, success });
+};
+
+export const trackUserLogin = (method: string, success: boolean) => {
+  AnalyticsOptimizer.trackEvent('user_login', { method, success });
+};
+
+export const trackUserLogout = () => {
+  AnalyticsOptimizer.trackEvent('user_logout', {});
+};
+
+export const trackUserSessionStart = () => {
+  AnalyticsOptimizer.trackEvent('session_start', {});
+};
+
+export const trackUserSessionEnd = (duration?: number) => {
+  AnalyticsOptimizer.trackEvent('session_end', { duration });
+};
+
 // Combined tracking for related events
 export const trackResumeFlow = (stage: 'upload' | 'process' | 'edit' | 'save', data?: any) => {
   AnalyticsOptimizer.trackEvent('resume_flow', { stage, ...data });
