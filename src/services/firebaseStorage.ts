@@ -30,7 +30,7 @@ export interface UserData {
   updatedAt: Date;
 }
 
-// Initialize or get user document
+// Initialize or get user document - only update updatedAt when data actually changes
 export const initializeUserDocument = async (name: string, email: string): Promise<void> => {
   try {
     const user = auth.currentUser;
@@ -38,12 +38,13 @@ export const initializeUserDocument = async (name: string, email: string): Promi
       throw new Error('User not authenticated - cannot initialize user document');
     }
 
-    console.log('🔧 Initializing user document for:', user.uid);
+    console.log('🔧 Checking user document for:', user.uid);
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
     
     if (!userDoc.exists()) {
+      // Create new user document
       const userData: UserData = {
         name,
         email,
@@ -57,13 +58,21 @@ export const initializeUserDocument = async (name: string, email: string): Promi
       await setDoc(userDocRef, userData);
       console.log('✅ User document created successfully');
     } else {
-      // Update name and email if they've changed
-      await updateDoc(userDocRef, {
-        name,
-        email,
-        updatedAt: new Date()
-      });
-      console.log('✅ User document updated with current info');
+      // Check if name or email have actually changed
+      const existingData = userDoc.data() as UserData;
+      const hasChanges = existingData.name !== name || existingData.email !== email;
+      
+      if (hasChanges) {
+        // Only update if there are actual changes
+        await updateDoc(userDocRef, {
+          name,
+          email,
+          updatedAt: new Date()
+        });
+        console.log('✅ User document updated with changes - name or email modified');
+      } else {
+        console.log('✅ User document exists and is up to date - no updatedAt change needed');
+      }
     }
   } catch (error) {
     console.error('❌ Error initializing user document:', error);
@@ -100,7 +109,7 @@ export const saveResumeDataToFirebase = async (
     await updateDoc(userDocRef, {
       resumeFile: fileMetadata, // Supabase file metadata
       parsedData: resumeData,   // Parsed resume data
-      updatedAt: new Date()
+      updatedAt: new Date()     // Update timestamp for data changes
     });
     
     console.log('✅ Resume data and file metadata saved to Firebase');
@@ -257,7 +266,7 @@ export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<vo
     
     await updateDoc(userDocRef, {
       parsedData: resumeData,
-      updatedAt: new Date()
+      updatedAt: new Date() // Update timestamp for data changes
     });
     
     console.log('✅ Resume data updated in Firebase');
@@ -306,7 +315,7 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
     
     await updateDoc(userDocRef, {
       applications,
-      updatedAt: new Date()
+      updatedAt: new Date() // Update timestamp for data changes
     });
     
     console.log('✅ Application saved to Firebase');
@@ -441,7 +450,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
     
     await updateDoc(userDocRef, {
       applications: updatedApplications,
-      updatedAt: new Date()
+      updatedAt: new Date() // Update timestamp for data changes
     });
     
     console.log('✅ Application updated in Firebase');
