@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, getMetadata } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { ResumeData, JobApplication } from '../types';
-import { ResumeFileMetadata } from './supabaseStorage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,12 +16,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const auth = getAuth(app);
+
+export interface ResumeFileMetadata {
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  uploadedAt: string;
+  downloadUrl: string;
+  storagePath: string;
+}
 
 export interface UserData {
   name: string;
   email: string;
-  // Supabase file metadata
+  // Firebase Storage file metadata
   resumeFile: ResumeFileMetadata | null;
   // Parsed resume data
   parsedData: ResumeData | null;
@@ -29,6 +39,119 @@ export interface UserData {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Upload resume file to Firebase Storage
+export const uploadResumeToFirebase = async (file: File): Promise<ResumeFileMetadata> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('User not authenticated - cannot upload resume to Firebase Storage');
+    }
+
+    console.log('📁 Uploading resume to Firebase Storage...');
+    console.log('📁 File details:', {
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+      type: file.type
+    });
+
+    // Validate file
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new Error('File size exceeds 10MB limit');
+    }
+
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('File type not supported. Please use PDF, DOC, DOCX, or TXT files');
+    }
+
+    // Create unique file path
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop() || 'unknown';
+    const fileName = `${user.uid}_resume_${timestamp}.${fileExtension}`;
+    const storagePath = `resumes/${user.uid}/${fileName}`;
+
+    console.log('📁 Uploading to Firebase Storage path:', storagePath);
+
+    // Upload file to Firebase Storage
+    const storageRef = ref(storage, storagePath);
+    const uploadResult = await uploadBytes(storageRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedBy: user.uid,
+        originalName: file.name,
+        uploadedAt: new Date().toISOString()
+      }
+    });
+
+    console.log('✅ File uploaded successfully to Firebase Storage:', uploadResult);
+
+    // Get download URL
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    const metadata: ResumeFileMetadata = {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      uploadedAt: new Date().toISOString(),
+      downloadUrl: downloadUrl,
+      storagePath: storagePath
+    };
+
+    console.log('✅ Resume file metadata:', metadata);
+    return metadata;
+
+  } catch (error) {
+    console.error('❌ Error uploading resume to Firebase Storage:', error);
+    throw new Error(`Failed to upload resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// Download resume file from Firebase Storage
+export const downloadResumeFromFirebase = async (storagePath: string): Promise<Blob> => {
+  try {
+    console.log('📥 Downloading resume from Firebase Storage:', storagePath);
+
+    const storageRef = ref(storage, storagePath);
+    const downloadUrl = await getDownloadURL(storageRef);
+    
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    console.log('✅ Resume downloaded successfully from Firebase Storage');
+    return blob;
+
+  } catch (error) {
+    console.error('❌ Error downloading resume from Firebase Storage:', error);
+    throw new Error(`Failed to download resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// Delete resume file from Firebase Storage
+export const deleteResumeFromFirebase = async (storagePath: string): Promise<void> => {
+  try {
+    console.log('🗑️ Deleting resume from Firebase Storage:', storagePath);
+
+    const storageRef = ref(storage, storagePath);
+    await deleteObject(storageRef);
+
+    console.log('✅ Resume deleted successfully from Firebase Storage');
+
+  } catch (error) {
+    console.error('❌ Error deleting resume from Firebase Storage:', error);
+    throw new Error(`Failed to delete resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
 
 // Initialize or get user document - only update updatedAt when data actually changes
 export const initializeUserDocument = async (name: string, email: string): Promise<void> => {
@@ -48,7 +171,7 @@ export const initializeUserDocument = async (name: string, email: string): Promi
       const userData: UserData = {
         name,
         email,
-        resumeFile: null, // Supabase file metadata
+        resumeFile: null, // Firebase Storage file metadata
         parsedData: null, // Parsed resume data
         applications: [],
         createdAt: new Date(),
@@ -80,7 +203,7 @@ export const initializeUserDocument = async (name: string, email: string): Promi
   }
 };
 
-// Save resume data and Supabase file metadata to Firebase
+// Save resume data and Firebase Storage file metadata to Firestore
 export const saveResumeDataToFirebase = async (
   resumeData: ResumeData, 
   fileMetadata: ResumeFileMetadata
@@ -107,7 +230,7 @@ export const saveResumeDataToFirebase = async (
     }
 
     await updateDoc(userDocRef, {
-      resumeFile: fileMetadata, // Supabase file metadata
+      resumeFile: fileMetadata, // Firebase Storage file metadata
       parsedData: resumeData,   // Parsed resume data
       updatedAt: new Date()     // Update timestamp for data changes
     });
@@ -118,7 +241,7 @@ export const saveResumeDataToFirebase = async (
     localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
     localStorage.setItem('craftly_resume_file', JSON.stringify(fileMetadata));
     
-    return fileMetadata.bucketPath;
+    return fileMetadata.storagePath;
   } catch (error) {
     console.error('❌ Error saving resume data to Firebase:', error);
     // Fallback to localStorage only
@@ -129,7 +252,7 @@ export const saveResumeDataToFirebase = async (
   }
 };
 
-// Load resume data from Firebase (metadata points to Supabase file)
+// Load resume data from Firebase (metadata points to Firebase Storage file)
 export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
   try {
     const user = auth.currentUser;
