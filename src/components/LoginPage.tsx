@@ -161,7 +161,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup, onGoogleSignIn
               <Heart size={16} className="text-red-500 animate-pulse" />
               <span className="text-gray-600">by</span>
               <a 
-                href="https://github.com/gopichand-busam" 
+                href="https://github.com/gopichandbusam" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"

@@ -2,33 +2,33 @@
 
 ## 🚀 Overview
 
-Craftly AI is a modern web application that uses artificial intelligence to parse resumes and generate personalized cover letters. The application features a cost-effective architecture using Firestore for data storage without expensive file storage costs.
+Craftly AI is a modern web application that uses artificial intelligence to parse resumes and generate personalized cover letters. The application features a cost-effective architecture using Supabase for data storage and authentication.
 
 ## ✨ Features
 
 - **AI-Powered Resume Parsing**: Upload PDF, DOC, DOCX, or TXT files and extract structured data using Google Gemini AI
 - **Smart Cover Letter Generation**: Create personalized cover letters tailored to specific job descriptions
-- **Cloud Data Storage**: Secure user data storage in Firebase Firestore
+- **Cloud Data Storage**: Secure user data storage in Supabase
 - **Real-time Editing**: Edit extracted resume data with immediate updates
 - **Progressive Web App**: Full offline support with service worker caching
 - **Security First**: Comprehensive security features including authentication, validation, and error handling
-- **Cost-Optimized**: No file storage costs - only parsed data stored in Firestore
+- **Cost-Optimized**: Only parsed data stored in cloud - files processed locally
 
 ## 🏗️ Architecture
 
 ### Cost-Effective Design
 - **File Processing**: Local file processing (no storage costs)
-- **Data Storage**: Only parsed resume data stored in Firestore
-- **Authentication**: Firebase Auth for secure user management
+- **Data Storage**: Only parsed resume data stored in Supabase
+- **Authentication**: Supabase Auth for secure user management
 - **AI Processing**: Google Gemini AI for intelligent text extraction
-- **Deployment**: Netlify for fast, reliable hosting
+- **Deployment**: Netlify/Vercel for fast, reliable hosting
 
 ### Technology Stack
 - **Frontend**: React 18 + TypeScript + Tailwind CSS
-- **Backend**: Firebase (Auth + Firestore)
+- **Backend**: Supabase (Auth + Database + Storage)
 - **AI**: Google Gemini API
 - **Build Tool**: Vite
-- **Analytics**: Firebase Analytics
+- **Analytics**: Optimized local analytics
 - **PWA**: Service Worker + Web App Manifest
 
 ## 🔧 Setup & Configuration
@@ -38,14 +38,9 @@ Craftly AI is a modern web application that uses artificial intelligence to pars
 Create a `.env` file with the following variables:
 
 ```env
-# Firebase Configuration
-VITE_FIREBASE_API_KEY=your_firebase_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Google Gemini AI Configuration
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
@@ -53,12 +48,11 @@ VITE_GEMINI_API_KEY=your_gemini_api_key_here
 
 ### Getting API Keys
 
-#### 1. Firebase Setup
-1. Go to [Firebase Console](https://console.firebase.google.com/)
+#### 1. Supabase Setup
+1. Go to [Supabase Console](https://supabase.com/)
 2. Create a new project
-3. Enable Authentication (Email/Password + Google)
-4. Create Firestore database
-5. Get configuration from Project Settings
+3. Go to Settings → API
+4. Copy your project URL and anon public key
 
 #### 2. Google Gemini API
 1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
@@ -68,6 +62,10 @@ VITE_GEMINI_API_KEY=your_gemini_api_key_here
 ### Local Development
 
 ```bash
+# Clone the repository
+git clone https://github.com/gopichandbusam/craftly.git
+cd craftly
+
 # Install dependencies
 npm install
 
@@ -82,6 +80,11 @@ npm run preview
 ```
 
 ## 🚀 Deployment
+
+### Demo Access
+Use these credentials to test the application:
+- **Email**: `demo@email.com`
+- **Password**: `password`
 
 ### Netlify Deployment
 
@@ -107,13 +110,13 @@ The application includes comprehensive security measures:
 - **Content Security Policy**: Prevents XSS attacks
 - **Security Headers**: HSTS, X-Frame-Options, etc.
 - **Input Validation**: File type/size validation
-- **Authentication**: Secure Firebase Auth
+- **Authentication**: Secure Supabase Auth
 - **Data Isolation**: Users can only access their own data
 
 ## 🔒 Security Features
 
 ### Data Protection
-- **Authentication**: Multi-provider Firebase Auth
+- **Authentication**: Multi-provider Supabase Auth
 - **Authorization**: User-based access controls
 - **Data Validation**: Comprehensive input validation
 - **Error Handling**: Graceful error boundaries
@@ -122,13 +125,12 @@ The application includes comprehensive security measures:
 ### Privacy Compliance
 - **GDPR Ready**: User data deletion capabilities
 - **Privacy Policy**: Comprehensive privacy documentation
-- **Cookie Consent**: Granular consent management
 - **Data Minimization**: Only necessary data collected
 
 ## 🎯 Performance Features
 
 ### Optimization
-- **Bundle Splitting**: Vendor, Firebase, PDF, AI chunks
+- **Bundle Splitting**: Vendor, Supabase, PDF, AI chunks
 - **Code Minification**: Terser optimization
 - **Service Worker**: Advanced caching strategies
 - **Progressive Loading**: Lazy loading and code splitting
@@ -138,19 +140,18 @@ The application includes comprehensive security measures:
 - **Performance Tracking**: Core Web Vitals monitoring
 - **Error Tracking**: Comprehensive error reporting
 - **Analytics**: User behavior and feature usage
-- **Real-time Monitoring**: Firebase Analytics integration
+- **Local Storage**: Optimized offline capabilities
 
 ## 📊 Cost Structure
 
 ### Free Tier Usage
-- **Firebase Firestore**: Generous free tier for document operations
-- **Firebase Auth**: Free for most use cases
+- **Supabase**: Generous free tier for database and storage
 - **Google Gemini AI**: Check current API pricing
 - **Netlify**: Free tier for personal projects
 
 ### Cost Optimization
 - **No File Storage**: Files processed locally, only data stored
-- **Efficient Queries**: Optimized Firestore operations
+- **Efficient Queries**: Optimized Supabase operations
 - **Caching**: Reduced API calls through smart caching
 - **Bundle Optimization**: Minimized bandwidth usage
 
@@ -202,16 +203,16 @@ For issues and questions:
 - Check the documentation
 - Review the troubleshooting guide
 - Create an issue on GitHub
-- Contact: support@gopichand.me
+- Contact: [Create an issue](https://github.com/gopichandbusam/craftly/issues)
 
 ## 🎉 Acknowledgments
 
 - Google Gemini AI for intelligent text processing
-- Firebase for reliable backend services
+- Supabase for reliable backend services
 - React team for the excellent framework
 - Tailwind CSS for beautiful styling
 - All open source contributors
 
 ---
 
-**Built with ❤️ by Gopichand Busam**
+**Built with ❤️ by [Gopichand Busam](https://github.com/gopichandbusam)**

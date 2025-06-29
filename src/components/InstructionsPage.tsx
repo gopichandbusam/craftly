@@ -77,7 +77,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`;
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Craftly AI Repository</h3>
               <a
-                href="https://github.com/craftly-ai/craftly"
+                href="https://github.com/gopichandbusam/craftly"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-gray-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-900 transition-colors flex items-center"
@@ -91,13 +91,13 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`;
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-400"># Clone the repository</span>
                 <button
-                  onClick={() => copyToClipboard('git clone https://github.com/craftly-ai/craftly.git', 'clone')}
+                  onClick={() => copyToClipboard('git clone https://github.com/gopichandbusam/craftly.git', 'clone')}
                   className="text-blue-400 hover:text-blue-300"
                 >
                   {copiedText === 'clone' ? <CheckCircle size={16} /> : <Copy size={16} />}
                 </button>
               </div>
-              <div>git clone https://github.com/craftly-ai/craftly.git</div>
+              <div>git clone https://github.com/gopichandbusam/craftly.git</div>
               <div className="mt-2">cd craftly</div>
               <div>npm install</div>
             </div>
