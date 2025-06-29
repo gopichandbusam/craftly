@@ -112,12 +112,12 @@ export const useAuth = () => {
       setLoading(true);
 
       // Demo login check
-      if (email === 'gopichand@gmail.com' && password === 'gopigopi') {
+      if (email === 'demo@email.com' && password === 'password') {
         console.log('🎯 Demo login detected');
         const demoUser: User = {
           uid: 'demo-user-id',
-          email: 'gopichand@gmail.com',
-          name: 'Gopichand Busam',
+          email: 'demo@email.com',
+          name: 'Demo User',
           linkedProviders: ['demo'],
           hasEmailProvider: true,
           hasGoogleProvider: false
@@ -133,7 +133,7 @@ export const useAuth = () => {
 
       if (!supabase) {
         setLoading(false);
-        return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
+        return { success: false, error: 'Supabase not configured. Use demo login: demo@email.com / password' };
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -174,7 +174,7 @@ export const useAuth = () => {
 
       if (!supabase) {
         setLoading(false);
-        return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
+        return { success: false, error: 'Supabase not configured. Use demo login: demo@email.com / password' };
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -223,7 +223,7 @@ export const useAuth = () => {
 
       if (!supabase) {
         setLoading(false);
-        return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
+        return { success: false, error: 'Supabase not configured. Use demo login: demo@email.com / password' };
       }
 
       const { error } = await supabase.auth.signInWithOAuth({

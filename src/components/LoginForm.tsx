@@ -80,7 +80,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
 
     try {
       console.log('🔥 Attempting demo login with credentials');
-      const result = await onLogin('gopichand@gmail.com', 'gopigopi');
+      const result = await onLogin('demo@email.com', 'password');
       console.log('🔥 Demo login result:', result);
       
       if (!result.success && result.error) {
@@ -135,7 +135,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
         ) : (
           <>
             <Coffee className="mr-2" size={20} />
-            Demo Login (Development)
+            Demo Login (demo@email.com)
           </>
         )}
       </button>
@@ -263,11 +263,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">New to Craftly AI?</span>
+              <span className="px-2 bg-white text-gray-500">Demo Access</span>
             </div>
           </div>
           <p className="mt-4 text-sm text-gray-600">
-            Create an account to save your resumes and cover letters, and access them from anywhere.
+            Try the app with <strong>demo@email.com</strong> and password <strong>password</strong>. Perfect for testing and exploring all features!
           </p>
         </div>
       )}

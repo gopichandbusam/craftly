@@ -275,7 +275,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`;
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Setup Instructions</h3>
               <ol className="list-decimal list-inside space-y-2 text-gray-700">
                 <li>After deployment, visit your app and create an account</li>
-                <li>Or use demo login: <strong>gopichand@gmail.com</strong> / <strong>gopigopi</strong></li>
+                <li>Or use demo login: <strong>demo@email.com</strong> / <strong>password</strong></li>
                 <li>Go to "AI Models" page in the sidebar</li>
                 <li>Click "Add Model" and select your preferred AI provider</li>
                 <li>Enter your API key and test the connection</li>
