@@ -1,4 +1,4 @@
-// Security headers and CSP configuration
+// Security headers and CSP configuration - Updated to allow right-click
 
 export const getSecurityHeaders = () => {
   return {
@@ -90,34 +90,42 @@ export const detectXSS = (input: string): boolean => {
   return xssPatterns.some(pattern => pattern.test(input));
 };
 
-// Initialize security measures
+// Initialize security measures - UPDATED to allow right-click
 export const initializeSecurity = () => {
   setupCSPReporting();
   
-  // Prevent right-click context menu in production
-  if (import.meta.env.PROD) {
-    document.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-    });
-    
-    // Prevent F12 developer tools
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'F12' || 
-          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-          (e.ctrlKey && e.shiftKey && e.key === 'J') ||
-          (e.ctrlKey && e.key === 'U')) {
-        e.preventDefault();
-      }
-    });
-  }
+  // ✅ RIGHT-CLICK IS NOW ENABLED - Removed context menu prevention
+  console.log('🔓 Right-click context menu is enabled for inspection');
   
-  // Console warning
+  // ✅ DEVELOPER TOOLS ARE NOW ENABLED - Removed F12 prevention
+  console.log('🔓 Developer tools are enabled for debugging');
+  
+  // Console security warning (still important)
   console.log(
-    '%cStop!',
-    'color: red; font-size: 50px; font-weight: bold;'
+    '%cDeveloper Mode Enabled',
+    'color: green; font-size: 20px; font-weight: bold;'
   );
   console.log(
-    '%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable a feature or "hack" someone\'s account, it is a scam and will give them access to your account.',
-    'color: red; font-size: 16px;'
+    '%cRight-click and developer tools are enabled for inspection and debugging. Be cautious about running unknown code.',
+    'color: orange; font-size: 14px;'
   );
+  
+  // Add development mode indicator
+  if (import.meta.env.DEV) {
+    const indicator = document.createElement('div');
+    indicator.innerHTML = '🔧 Development Mode';
+    indicator.style.cssText = `
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: #10b981;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 9999;
+      font-family: monospace;
+    `;
+    document.body.appendChild(indicator);
+  }
 };

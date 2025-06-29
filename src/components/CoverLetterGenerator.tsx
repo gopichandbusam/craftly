@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Edit3, Sparkles, Building, FileText, AlertCircle, CheckCircle, ArrowLeft, ExternalLink, Upload, WifiOff } from 'lucide-react';
+import { Download, Edit3, Sparkles, Building, FileText, AlertCircle, CheckCircle, ArrowLeft, ExternalLink, Upload, WifiOff, Database, Settings } from 'lucide-react';
 import { ResumeData, JobApplication } from '../types';
 import { generateCoverLetter } from '../services/geminiService';
 import { loadApplicationFromFirebase, saveApplicationToFirebase, updateApplicationInFirebase } from '../services/firebaseStorage';
@@ -15,6 +15,7 @@ import {
   trackFeatureUsage
 } from '../services/analytics';
 import jsPDF from 'jspdf';
+import StorageDebugger from './StorageDebugger';
 
 interface CoverLetterGeneratorProps {
   resumeData: ResumeData;
@@ -31,6 +32,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
   const [generationProgress, setGenerationProgress] = useState(0);
   const [dataError, setDataError] = useState<string>('');
   const [isGeminiApiError, setIsGeminiApiError] = useState(false);
+  const [showStorageDebugger, setShowStorageDebugger] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Load saved application on component mount
@@ -40,7 +42,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         console.log('📋 Loading saved application...');
         const savedApplication = await loadApplicationFromFirebase();
         if (savedApplication) {
-          console.log('✅ Loaded saved application from Firebase:', savedApplication);
+          console.log('✅ Loaded saved application from Firestore/device storage:', savedApplication);
           setApplication(savedApplication);
           setJobDescription(savedApplication.jobDescription || '');
           setDataError('');
@@ -143,20 +145,20 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
           job_description_length: jobDescription.length,
           cover_letter_length: coverLetter.length,
           company,
-          position
+          position,
+          storage_type: 'firestore_with_device_cache'
         }
       });
       
-      // Save to Firebase
+      // Save to Firestore + device storage
       try {
         await saveApplicationToFirebase(newApplication);
-        console.log('✅ Application saved to Firebase successfully');
+        console.log('✅ Application saved to Firestore + device storage successfully');
         setDataError('');
         trackFirebaseOperation('save', 'application', true);
       } catch (firebaseError) {
-        console.warn('⚠️ Firebase save failed, continuing with localStorage:', firebaseError);
-        setDataError('Application saved locally - cloud sync will retry automatically');
-        localStorage.setItem('craftly_application', JSON.stringify(newApplication));
+        console.warn('⚠️ Firestore save failed, data saved to device storage:', firebaseError);
+        setDataError('Application saved to device for 1 week - cloud sync will retry automatically');
         trackFirebaseOperation('save', 'application', false, firebaseError instanceof Error ? firebaseError.message : 'Unknown error');
       }
       
@@ -221,16 +223,15 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         coverLetterLength: newCoverLetter.length
       });
       
-      // Update in Firebase
+      // Update in Firestore + device storage
       try {
         await updateApplicationInFirebase(updatedApplication);
-        console.log('✅ Application updated in Firebase successfully');
+        console.log('✅ Application updated in Firestore + device storage successfully');
         setDataError('');
         trackFirebaseOperation('update', 'application', true);
       } catch (error) {
-        console.warn('⚠️ Firebase update failed, data saved locally:', error);
-        setDataError('Changes saved locally - cloud sync will retry automatically');
-        localStorage.setItem('craftly_application', JSON.stringify(updatedApplication));
+        console.warn('⚠️ Firestore update failed, data saved to device storage:', error);
+        setDataError('Changes saved to device for 1 week - cloud sync will retry automatically');
         trackFirebaseOperation('update', 'application', false, error instanceof Error ? error.message : 'Unknown error');
       }
     }
@@ -453,18 +454,30 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <button
-            onClick={() => {
-              trackFeatureUsage('back_to_upload');
-              onBack();
-            }}
-            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-4 bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
-          >
-            <ArrowLeft size={20} className="mr-2" />
-            Back to Resume Upload
-          </button>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => {
+                trackFeatureUsage('back_to_upload');
+                onBack();
+              }}
+              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Resume Upload
+            </button>
+            
+            <button
+              onClick={() => setShowStorageDebugger(true)}
+              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
+              title="Storage Debugger"
+            >
+              <Settings size={20} className="mr-2" />
+              Storage Info
+            </button>
+          </div>
+          
           <h1 className="text-4xl font-bold text-gray-800 mb-2">AI Cover Letter Generator</h1>
-          <p className="text-gray-600">Create a tailored cover letter using Gemini AI with cloud synchronization</p>
+          <p className="text-gray-600">Create a tailored cover letter using Gemini AI with 1-week device storage</p>
         </div>
 
         {error && (
@@ -499,9 +512,9 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
 
         {dataError && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-2xl flex items-center text-yellow-700 max-w-2xl">
-            <AlertCircle size={20} className="mr-3 flex-shrink-0" />
+            <Database size={20} className="mr-3 flex-shrink-0" />
             <div>
-              <p className="font-medium">Cloud Sync Notice</p>
+              <p className="font-medium">Device Storage Notice</p>
               <p className="text-sm">{dataError}</p>
             </div>
           </div>
@@ -562,7 +575,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                 <p><strong>Experience:</strong> {resumeData.experience.length} entries</p>
                 <p><strong>Education:</strong> {resumeData.education.length} entries</p>
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-700 font-medium">☁️ Data automatically synced with Firebase</p>
+                  <p className="text-xs text-blue-700 font-medium">📱 Data stored on device for 1 week + Firestore backup</p>
                 </div>
               </div>
             </div>
@@ -637,7 +650,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                         Save Changes
                       </button>
                       <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                        Changes are automatically saved to Firebase
+                        Changes are automatically saved to device (1 week) + Firestore
                       </div>
                     </div>
                   ) : (
@@ -653,7 +666,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                     <p className="text-lg mb-2">Your AI-generated cover letter will appear here</p>
                     <p className="text-sm">Enter a job description and click generate to get started</p>
                     <p className="text-xs text-blue-600 mt-4 bg-blue-50 p-2 rounded-lg">
-                      ☁️ All content automatically synced with Firebase
+                      📱 Data automatically stored on device for 1 week + Firestore backup
                     </p>
                   </div>
                 </div>
@@ -662,6 +675,12 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
           </div>
         </div>
       </div>
+
+      {/* Storage Debugger Modal */}
+      <StorageDebugger 
+        isVisible={showStorageDebugger}
+        onClose={() => setShowStorageDebugger(false)}
+      />
     </div>
   );
 };
