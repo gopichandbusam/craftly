@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Settings } from 'lucide-react';
-import { trackError } from '../services/analytics';
+import { trackError } from '../services/optimizedAnalytics';
 
 interface Props {
   children: ReactNode;

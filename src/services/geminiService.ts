@@ -1,8 +1,74 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ResumeData } from '../types';
-import { formatPromptWithData, COVER_LETTER_PROMPT } from './promptTemplates';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
+// Prompt template for cover letter generation
+const COVER_LETTER_PROMPT = `
+You are an expert cover letter writer. Create a professional, compelling cover letter based on the following resume data and job description.
+
+Instructions:
+- Write a cover letter that is exactly one page long (approximately 350-400 words)
+- Make it professional, engaging, and tailored to the specific job
+- Highlight relevant skills, experiences, and achievements from the resume
+- Show enthusiasm for the role and company
+- Use a formal business letter format
+- End with "Sincerely," followed by the candidate's name
+- Do not include any placeholder text in brackets like [Company Name] or [Your Name]
+- Be specific and avoid generic language
+- Focus on how the candidate's experience directly relates to the job requirements
+
+Resume Data:
+{resumeData}
+
+Job Description:
+{jobDescription}
+
+Write a compelling cover letter that would make the candidate stand out:
+`;
+
+// Function to format prompt with actual data
+const formatPromptWithData = (resumeData: ResumeData, jobDescription: string, basePrompt: string): string => {
+  const resumeText = `
+Name: ${resumeData.name}
+Email: ${resumeData.email}
+Phone: ${resumeData.phone || 'Not provided'}
+Location: ${resumeData.location || 'Not provided'}
+
+Summary: ${resumeData.summary || 'Not provided'}
+
+Work Experience:
+${resumeData.workExperience?.map(exp => `
+- ${exp.position} at ${exp.company} (${exp.startDate} - ${exp.endDate})
+  ${exp.description}
+`).join('\n') || 'No work experience provided'}
+
+Education:
+${resumeData.education?.map(edu => `
+- ${edu.degree} from ${edu.school} (${edu.graduationDate})
+  ${edu.description || ''}
+`).join('\n') || 'No education provided'}
+
+Skills: ${resumeData.skills?.join(', ') || 'No skills provided'}
+
+Projects:
+${resumeData.projects?.map(proj => `
+- ${proj.name}: ${proj.description}
+  Technologies: ${proj.technologies?.join(', ') || 'Not specified'}
+`).join('\n') || 'No projects provided'}
+
+Certifications:
+${resumeData.certifications?.map(cert => `
+- ${cert.name}: ${cert.issuer} (${cert.date})
+`).join('\n') || 'No certifications provided'}
+
+Languages: ${resumeData.languages?.join(', ') || 'Not provided'}
+`;
+
+  return basePrompt
+    .replace('{resumeData}', resumeText)
+    .replace('{jobDescription}', jobDescription);
+};
 
 export const generateCoverLetter = async (
   resumeData: ResumeData, 

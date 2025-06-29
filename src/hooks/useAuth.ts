@@ -15,7 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { initializeUserDocument } from '../services/firebaseStorage';
-import { trackUserSignup, trackUserLogin, trackUserLogout, trackUserSessionStart, trackUserSessionEnd } from '../services/analytics';
+import { trackUserSignup, trackUserLogin, trackUserLogout, trackUserSessionStart, trackUserSessionEnd } from '../services/optimizedAnalytics';
 import { User } from '../types';
 
 export const useAuth = () => {
