@@ -25,61 +25,78 @@ export const useAuth = () => {
     // Track session start
     trackUserSessionStart();
 
-    if (supabase) {
-      // Get initial session
-      supabase.auth.getSession().then(({ data: { session } }: any) => {
-        if (session?.user) {
-          const userData: User = {
-            uid: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-            linkedProviders: ['email'],
-            hasEmailProvider: true,
-            hasGoogleProvider: false
-          };
-          setUser(userData);
-          initializeUserProfile(userData.email, userData.name);
-        }
-        setLoading(false);
-      });
-
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-        if (session?.user) {
-          const userData: User = {
-            uid: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-            linkedProviders: ['email'],
-            hasEmailProvider: true,
-            hasGoogleProvider: false
-          };
-          setUser(userData);
-          await initializeUserProfile(userData.email, userData.name);
-        } else {
-          if (user) {
-            const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
-            trackUserSessionEnd(sessionDuration);
-          }
-          setUser(null);
-          localStorage.removeItem('craftly_user');
-        }
-        setLoading(false);
-      });
-
-      return () => subscription.unsubscribe();
-    } else {
-      // Demo mode - check localStorage for demo user
-      const demoUser = localStorage.getItem('craftly_demo_user');
-      if (demoUser) {
+    const initializeAuth = async () => {
+      if (supabase) {
         try {
-          setUser(JSON.parse(demoUser));
+          // Get initial session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const userData: User = {
+              uid: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              linkedProviders: ['email'],
+              hasEmailProvider: true,
+              hasGoogleProvider: false
+            };
+            setUser(userData);
+            console.log('✅ User authenticated from session:', userData);
+            await initializeUserProfile(userData.email, userData.name);
+          }
+
+          // Listen for auth changes
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
+            console.log('🔄 Auth state changed:', event, session?.user?.email);
+            
+            if (session?.user) {
+              const userData: User = {
+                uid: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                linkedProviders: ['email'],
+                hasEmailProvider: true,
+                hasGoogleProvider: false
+              };
+              setUser(userData);
+              console.log('✅ User set from auth change:', userData);
+              await initializeUserProfile(userData.email, userData.name);
+            } else {
+              if (user) {
+                const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+                trackUserSessionEnd(sessionDuration);
+              }
+              setUser(null);
+              localStorage.removeItem('craftly_user');
+              localStorage.removeItem('craftly_demo_user');
+              console.log('📤 User logged out');
+            }
+          });
+
+          setLoading(false);
+          return () => subscription.unsubscribe();
         } catch (error) {
-          localStorage.removeItem('craftly_demo_user');
+          console.error('❌ Supabase auth initialization failed:', error);
+          setLoading(false);
         }
+      } else {
+        // Demo mode - check localStorage for demo user
+        console.log('🔄 Checking for demo user in localStorage');
+        const demoUser = localStorage.getItem('craftly_demo_user');
+        if (demoUser) {
+          try {
+            const userData = JSON.parse(demoUser);
+            setUser(userData);
+            console.log('✅ Demo user loaded from localStorage:', userData);
+          } catch (error) {
+            console.warn('⚠️ Invalid demo user data in localStorage');
+            localStorage.removeItem('craftly_demo_user');
+          }
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    }
+    };
+
+    initializeAuth();
 
     return () => {
       if (user) {
@@ -87,14 +104,16 @@ export const useAuth = () => {
         trackUserSessionEnd(sessionDuration);
       }
     };
-  }, [sessionStartTime, user]);
+  }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('🔄 Login attempt for:', email);
       setLoading(true);
 
-      // Demo login
+      // Demo login check
       if (email === 'gopichand@gmail.com' && password === 'gopigopi') {
+        console.log('🎯 Demo login detected');
         const demoUser: User = {
           uid: 'demo-user-id',
           email: 'gopichand@gmail.com',
@@ -107,11 +126,13 @@ export const useAuth = () => {
         setUser(demoUser);
         localStorage.setItem('craftly_demo_user', JSON.stringify(demoUser));
         trackUserLogin('demo', demoUser);
-        console.log('✅ Demo login successful');
+        console.log('✅ Demo login successful, user set:', demoUser);
+        setLoading(false);
         return { success: true };
       }
 
       if (!supabase) {
+        setLoading(false);
         return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
       }
 
@@ -121,6 +142,7 @@ export const useAuth = () => {
       });
 
       if (error) {
+        setLoading(false);
         return { success: false, error: error.message };
       }
 
@@ -136,13 +158,13 @@ export const useAuth = () => {
       trackUserLogin('email', userData);
       await initializeUserProfile(userData.email, userData.name);
       
-      console.log('✅ Login successful');
+      console.log('✅ Supabase login successful');
+      setLoading(false);
       return { success: true };
     } catch (error: any) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message || 'Login failed. Please try again.' };
-    } finally {
+      console.error('❌ Login error:', error);
       setLoading(false);
+      return { success: false, error: error.message || 'Login failed. Please try again.' };
     }
   };
 
@@ -151,6 +173,7 @@ export const useAuth = () => {
       setLoading(true);
 
       if (!supabase) {
+        setLoading(false);
         return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
       }
 
@@ -165,6 +188,7 @@ export const useAuth = () => {
       });
 
       if (error) {
+        setLoading(false);
         return { success: false, error: error.message };
       }
 
@@ -184,12 +208,12 @@ export const useAuth = () => {
       }
       
       console.log('✅ Signup successful');
+      setLoading(false);
       return { success: true };
     } catch (error: any) {
-      console.error('Signup error:', error);
-      return { success: false, error: error.message || 'Account creation failed. Please try again.' };
-    } finally {
+      console.error('❌ Signup error:', error);
       setLoading(false);
+      return { success: false, error: error.message || 'Account creation failed. Please try again.' };
     }
   };
 
@@ -198,6 +222,7 @@ export const useAuth = () => {
       setLoading(true);
 
       if (!supabase) {
+        setLoading(false);
         return { success: false, error: 'Supabase not configured. Use demo login: gopichand@gmail.com / gopigopi' };
       }
 
@@ -209,21 +234,23 @@ export const useAuth = () => {
       });
 
       if (error) {
+        setLoading(false);
         return { success: false, error: error.message };
       }
 
       console.log('✅ Google sign-in initiated');
+      setLoading(false);
       return { success: true };
     } catch (error: any) {
-      console.error('Google sign-in error:', error);
-      return { success: false, error: error.message || 'Google sign-in failed. Please try again.' };
-    } finally {
+      console.error('❌ Google sign-in error:', error);
       setLoading(false);
+      return { success: false, error: error.message || 'Google sign-in failed. Please try again.' };
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
+      console.log('🔄 Logout initiated');
       // Track logout before clearing data
       trackUserLogout();
       
@@ -242,7 +269,7 @@ export const useAuth = () => {
       setUser(null);
       console.log('✅ Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
     }
   };
 

@@ -16,6 +16,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,20 +74,26 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
   };
 
   const handleDemoLogin = async () => {
-    setEmail('gopichand@gmail.com');
-    setPassword('gopigopi');
+    console.log('🔥 Demo login button clicked');
     setError('');
-    setIsLoading(true);
+    setIsDemoLoading(true);
 
     try {
+      console.log('🔥 Attempting demo login with credentials');
       const result = await onLogin('gopichand@gmail.com', 'gopigopi');
+      console.log('🔥 Demo login result:', result);
+      
       if (!result.success && result.error) {
         setError(result.error);
+        console.error('🔥 Demo login failed:', result.error);
+      } else {
+        console.log('🔥 Demo login successful!');
       }
     } catch (error) {
+      console.error('🔥 Demo login error:', error);
       setError('Demo login failed. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsDemoLoading(false);
     }
   };
 
@@ -117,10 +124,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
       {/* Demo Login Button */}
       <button
         onClick={handleDemoLogin}
-        disabled={isLoading || isGoogleLoading}
+        disabled={isLoading || isGoogleLoading || isDemoLoading}
         className="w-full bg-gradient-to-r from-orange-400 to-red-400 text-white py-4 rounded-2xl font-semibold hover:from-orange-500 hover:to-red-500 transform hover:scale-[1.02] transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mb-4"
       >
-        {isLoading && email === 'gopichand@gmail.com' ? (
+        {isDemoLoading ? (
           <>
             <Loader className="animate-spin mr-2" size={20} />
             Signing in...
@@ -136,7 +143,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
       {/* Google Sign-In Button */}
       <button
         onClick={handleGoogleSignIn}
-        disabled={isGoogleLoading || isLoading}
+        disabled={isGoogleLoading || isLoading || isDemoLoading}
         className="w-full bg-white border-2 border-gray-200 text-gray-700 py-4 rounded-2xl font-semibold hover:bg-gray-50 hover:border-gray-300 transform hover:scale-[1.02] transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mb-6"
       >
         {isGoogleLoading ? (
@@ -177,7 +184,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
               onChange={(e) => setName(e.target.value)}
               placeholder="Full name"
               className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200"
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading || isGoogleLoading || isDemoLoading}
             />
           </div>
         )}
@@ -190,7 +197,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email address"
             className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200"
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading || isGoogleLoading || isDemoLoading}
           />
         </div>
 
@@ -202,13 +209,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password (min. 6 characters)"
             className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200"
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading || isGoogleLoading || isDemoLoading}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading || isGoogleLoading || isDemoLoading}
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
@@ -222,10 +229,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
 
         <button
           type="submit"
-          disabled={isLoading || isGoogleLoading}
+          disabled={isLoading || isGoogleLoading || isDemoLoading}
           className="w-full bg-gradient-to-r from-blue-400 to-purple-400 text-white py-4 rounded-2xl font-semibold hover:from-blue-500 hover:to-purple-500 transform hover:scale-[1.02] transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
         >
-          {isLoading && email !== 'gopichand@gmail.com' ? (
+          {isLoading ? (
             <>
               <Loader className="animate-spin mr-2" size={20} />
               {isLogin ? 'Signing In...' : 'Creating Account...'}
@@ -241,7 +248,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSignup, onGoogleSignIn
           {isLogin ? "Don't have an account?" : 'Already have an account?'}
           <button
             onClick={toggleMode}
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading || isGoogleLoading || isDemoLoading}
             className="ml-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors disabled:opacity-50"
           >
             {isLogin ? 'Sign Up' : 'Sign In'}
