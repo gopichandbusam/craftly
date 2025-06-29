@@ -7,7 +7,11 @@ import {
   User as FirebaseUser,
   updateProfile,
   signInWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  linkWithPopup,
+  unlink,
+  getAuth,
+  AuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { initializeUserDocument } from '../services/firebaseStorage';
@@ -25,9 +29,16 @@ export const useAuth = () => {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        // Get linked providers
+        const linkedProviders = firebaseUser.providerData.map(provider => provider.providerId);
+        
         const userData: User = {
+          uid: firebaseUser.uid,
           email: firebaseUser.email || '',
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          linkedProviders,
+          hasEmailProvider: linkedProviders.includes('password'),
+          hasGoogleProvider: linkedProviders.includes('google.com')
         };
         
         // Initialize user document - this is a LOGIN EVENT, so update updatedAt
@@ -69,9 +80,14 @@ export const useAuth = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
+      const linkedProviders = firebaseUser.providerData.map(provider => provider.providerId);
       const userData: User = {
+        uid: firebaseUser.uid,
         email: firebaseUser.email || '',
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        linkedProviders,
+        hasEmailProvider: linkedProviders.includes('password'),
+        hasGoogleProvider: linkedProviders.includes('google.com')
       };
       
       // Track successful login
@@ -132,9 +148,14 @@ export const useAuth = () => {
         await updateProfile(firebaseUser, { displayName: name });
       }
       
+      const linkedProviders = firebaseUser.providerData.map(provider => provider.providerId);
       const userData: User = {
+        uid: firebaseUser.uid,
         email: firebaseUser.email || '',
-        name: name || firebaseUser.email?.split('@')[0] || 'User'
+        name: name || firebaseUser.email?.split('@')[0] || 'User',
+        linkedProviders,
+        hasEmailProvider: linkedProviders.includes('password'),
+        hasGoogleProvider: linkedProviders.includes('google.com')
       };
       
       // Track successful signup
@@ -188,9 +209,14 @@ export const useAuth = () => {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
       
+      const linkedProviders = firebaseUser.providerData.map(provider => provider.providerId);
       const userData: User = {
+        uid: firebaseUser.uid,
         email: firebaseUser.email || '',
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        linkedProviders,
+        hasEmailProvider: linkedProviders.includes('password'),
+        hasGoogleProvider: linkedProviders.includes('google.com')
       };
       
       // Track successful Google sign-in
@@ -234,6 +260,94 @@ export const useAuth = () => {
     }
   };
 
+  // Link Google account to existing email account
+  const linkGoogleAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      const result = await linkWithPopup(currentUser, provider);
+      const firebaseUser = result.user;
+      
+      const linkedProviders = firebaseUser.providerData.map(provider => provider.providerId);
+      const userData: User = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        name: firebaseUser.displayName || user?.name || 'User',
+        linkedProviders,
+        hasEmailProvider: linkedProviders.includes('password'),
+        hasGoogleProvider: linkedProviders.includes('google.com')
+      };
+      
+      setUser(userData);
+      localStorage.setItem('craftly_user', JSON.stringify(userData));
+      
+      console.log('✅ Google account linked successfully');
+      return { success: true };
+    } catch (error: any) {
+      console.error('Google linking error:', error);
+      let errorMessage = 'Failed to link Google account. Please try again.';
+      
+      switch (error.code) {
+        case 'auth/credential-already-in-use':
+          errorMessage = 'This Google account is already linked to another account.';
+          break;
+        case 'auth/email-already-in-use':
+          errorMessage = 'This email is already associated with another account.';
+          break;
+        case 'auth/popup-closed-by-user':
+          errorMessage = 'Linking was cancelled. Please try again.';
+          break;
+        default:
+          errorMessage = error.message || 'Failed to link Google account.';
+      }
+      
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Unlink a provider
+  const unlinkProvider = async (providerId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      // Don't allow unlinking if it's the only provider
+      if (currentUser.providerData.length <= 1) {
+        return { success: false, error: 'Cannot unlink the only sign-in method. Please add another method first.' };
+      }
+
+      await unlink(currentUser, providerId);
+      
+      const linkedProviders = currentUser.providerData.map(provider => provider.providerId);
+      const userData: User = {
+        uid: currentUser.uid,
+        email: currentUser.email || '',
+        name: currentUser.displayName || user?.name || 'User',
+        linkedProviders,
+        hasEmailProvider: linkedProviders.includes('password'),
+        hasGoogleProvider: linkedProviders.includes('google.com')
+      };
+      
+      setUser(userData);
+      localStorage.setItem('craftly_user', JSON.stringify(userData));
+      
+      console.log(`✅ ${providerId} account unlinked successfully`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Unlink error:', error);
+      return { success: false, error: error.message || 'Failed to unlink account.' };
+    }
+  };
+
   const logout = async (): Promise<void> => {
     try {
       // Track logout before clearing data
@@ -245,11 +359,21 @@ export const useAuth = () => {
       localStorage.removeItem('craftly_application');
       localStorage.removeItem('craftly_resume_link');
       localStorage.removeItem('craftly_application_id');
+      localStorage.removeItem('craftly_custom_prompt');
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  return { user, login, signup, signInWithGoogle, logout, loading };
+  return { 
+    user, 
+    login, 
+    signup, 
+    signInWithGoogle, 
+    linkGoogleAccount,
+    unlinkProvider,
+    logout, 
+    loading 
+  };
 };

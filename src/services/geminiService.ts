@@ -1,19 +1,30 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ResumeData } from '../types';
-import { formatPromptWithData } from './promptTemplates';
+import { formatPromptWithData, COVER_LETTER_PROMPT } from './promptTemplates';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-export const generateCoverLetter = async (resumeData: ResumeData, jobDescription: string): Promise<string> => {
+export const generateCoverLetter = async (
+  resumeData: ResumeData, 
+  jobDescription: string, 
+  customPrompt?: string
+): Promise<string> => {
   try {
     console.log('📝 Starting cover letter generation...');
     console.log('📝 Resume data for cover letter:', resumeData);
     console.log('📝 Job description (first 500 chars):', jobDescription.substring(0, 500));
+    console.log('📝 Using custom prompt:', !!customPrompt);
     
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = formatPromptWithData(resumeData, jobDescription);
+    // Use custom prompt if provided, otherwise use default
+    const basePrompt = customPrompt || COVER_LETTER_PROMPT;
+    const prompt = formatPromptWithData(resumeData, jobDescription, basePrompt);
+    
     console.log('📝 Generated prompt for AI (first 1000 chars):', prompt.substring(0, 1000));
+    if (customPrompt) {
+      console.log('🎨 Using custom prompt for personalized generation');
+    }
 
     console.log('📝 Sending cover letter generation request to AI...');
     const result = await model.generateContent(prompt);
@@ -22,7 +33,7 @@ export const generateCoverLetter = async (resumeData: ResumeData, jobDescription
     
     console.log('📝 Raw AI cover letter response:', coverLetter);
     
-    // Clean up the cover letter
+    // Clean up the cover letter for one-page format
     coverLetter = coverLetter.trim();
     console.log('📝 After trim:', coverLetter.length, 'characters');
     
@@ -62,10 +73,29 @@ export const generateCoverLetter = async (resumeData: ResumeData, jobDescription
       console.log('📝 Cleaned up extra whitespace');
     }
     
-    console.log('📝 Final cleaned cover letter:');
+    // Ensure one-page length (approximately 400-500 words max)
+    const words = coverLetter.split(/\s+/).filter(word => word.length > 0);
+    if (words.length > 500) {
+      console.log('📝 Cover letter too long, truncating for one-page format');
+      // Keep the opening, middle portion, and closing
+      const openingWords = words.slice(0, 100);
+      const middleWords = words.slice(100, 350);
+      const closingWords = words.slice(-50);
+      
+      const truncatedWords = [...openingWords, ...middleWords, ...closingWords];
+      coverLetter = truncatedWords.join(' ');
+      
+      // Re-add proper ending
+      if (!coverLetter.includes('Sincerely,')) {
+        coverLetter += `\n\nSincerely,\n${resumeData.name}`;
+      }
+    }
+    
+    console.log('📝 Final one-page cover letter:');
     console.log('📝 Length:', coverLetter.length, 'characters');
     console.log('📝 Word count:', coverLetter.split(/\s+/).length, 'words');
     console.log('📝 Final content:', coverLetter);
+    console.log('📄 Optimized for single-page PDF generation');
     
     return coverLetter;
   } catch (error) {

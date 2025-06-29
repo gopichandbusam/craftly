@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Edit3, Sparkles, Building, FileText, AlertCircle, CheckCircle, ArrowLeft, ExternalLink, Upload, WifiOff, Database, Settings } from 'lucide-react';
+import { Download, Edit3, Sparkles, Building, FileText, AlertCircle, CheckCircle, ArrowLeft, ExternalLink, Upload, WifiOff, Database, Settings, Wand2 } from 'lucide-react';
 import { ResumeData, JobApplication } from '../types';
 import { generateCoverLetter } from '../services/geminiService';
 import { loadApplicationFromFirebase, saveApplicationToFirebase, updateApplicationInFirebase } from '../services/firebaseStorage';
@@ -15,7 +15,10 @@ import {
   trackFeatureUsage
 } from '../services/analytics';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import StorageDebugger from './StorageDebugger';
+import CustomPromptEditor from './CustomPromptEditor';
+import AccountLinking from './AccountLinking';
 
 interface CoverLetterGeneratorProps {
   resumeData: ResumeData;
@@ -33,9 +36,12 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
   const [dataError, setDataError] = useState<string>('');
   const [isGeminiApiError, setIsGeminiApiError] = useState(false);
   const [showStorageDebugger, setShowStorageDebugger] = useState(false);
+  const [showCustomPrompt, setShowCustomPrompt] = useState(false);
+  const [showAccountLinking, setShowAccountLinking] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState<string>('');
   const previewRef = useRef<HTMLDivElement>(null);
 
-  // Load saved application on component mount
+  // Load saved application and custom prompt on component mount
   useEffect(() => {
     const loadSavedApplication = async () => {
       try {
@@ -64,6 +70,13 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         }
       }
     };
+
+    // Load custom prompt
+    const savedPrompt = localStorage.getItem('craftly_custom_prompt');
+    if (savedPrompt) {
+      setCustomPrompt(savedPrompt);
+      console.log('✅ Loaded custom prompt from localStorage');
+    }
 
     // Validate resume data first
     if (!resumeData) {
@@ -94,7 +107,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
     trackCoverLetterGenerationStart({
       jobDescriptionLength: jobDescription.length,
       company,
-      position
+      position,
+      hasCustomPrompt: !!customPrompt
     });
 
     setIsGenerating(true);
@@ -111,17 +125,20 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
 
       console.log('Generating cover letter with resume data:', resumeData);
       console.log('Job description:', jobDescription);
+      console.log('Using custom prompt:', !!customPrompt);
 
-      const coverLetter = await generateCoverLetter(resumeData, jobDescription);
+      const coverLetter = await generateCoverLetter(resumeData, jobDescription, customPrompt);
       
       clearInterval(progressInterval);
       setGenerationProgress(100);
 
+      // Create application without company data in Firebase - company data only used for generation
       const newApplication: JobApplication = {
-        company,
-        position,
+        company, // This is for display purposes only, not stored in Firebase
+        position, // This is for display purposes only, not stored in Firebase  
         jobDescription,
-        coverLetter
+        coverLetter,
+        customPrompt: customPrompt || undefined
       };
 
       setApplication(newApplication);
@@ -133,7 +150,9 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         generationTime,
         coverLetterLength: coverLetter.length,
         company,
-        position
+        position,
+        storage_type: 'firestore_with_device_cache',
+        hasCustomPrompt: !!customPrompt
       });
 
       // Track performance
@@ -146,14 +165,20 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
           cover_letter_length: coverLetter.length,
           company,
           position,
-          storage_type: 'firestore_with_device_cache'
+          has_custom_prompt: !!customPrompt
         }
       });
       
-      // Save to Firestore + device storage
+      // Save to Firestore + device storage (company data for generation only, not stored)
       try {
-        await saveApplicationToFirebase(newApplication);
-        console.log('✅ Application saved to Firestore + device storage successfully');
+        // Only save jobDescription and coverLetter to Firebase, not company data
+        const applicationToStore = {
+          jobDescription,
+          coverLetter,
+          customPrompt: customPrompt || undefined
+        };
+        await saveApplicationToFirebase(applicationToStore as JobApplication);
+        console.log('✅ Application saved to Firestore + device storage successfully (no company data stored)');
         setDataError('');
         trackFirebaseOperation('save', 'application', true);
       } catch (firebaseError) {
@@ -192,7 +217,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
       trackCoverLetterGenerationError({
         error: error instanceof Error ? error.message : 'Unknown error',
         errorType,
-        generationTime
+        generationTime,
+        hasCustomPrompt: !!customPrompt
       });
 
       // Track performance (failed)
@@ -202,7 +228,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         success: false,
         additionalData: {
           job_description_length: jobDescription.length,
-          error_type: errorType
+          error_type: errorType,
+          has_custom_prompt: !!customPrompt
         }
       });
       
@@ -223,10 +250,15 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         coverLetterLength: newCoverLetter.length
       });
       
-      // Update in Firestore + device storage
+      // Update in Firestore (only jobDescription and coverLetter, not company data)
       try {
-        await updateApplicationInFirebase(updatedApplication);
-        console.log('✅ Application updated in Firestore + device storage successfully');
+        const applicationToStore = {
+          jobDescription: updatedApplication.jobDescription,
+          coverLetter: newCoverLetter,
+          customPrompt: updatedApplication.customPrompt
+        };
+        await updateApplicationInFirebase(applicationToStore as JobApplication);
+        console.log('✅ Application updated in Firestore + device storage successfully (no company data stored)');
         setDataError('');
         trackFirebaseOperation('update', 'application', true);
       } catch (error) {
@@ -302,8 +334,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
     return 'Desired Position';
   };
 
-  const downloadPDF = () => {
-    if (!application) return;
+  const downloadPDF = async () => {
+    if (!application || !previewRef.current) return;
 
     // Track download
     trackCoverLetterDownload({
@@ -312,62 +344,113 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
       position: application.position
     });
 
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.width;
-    const margin = 20;
-    const maxWidth = pageWidth - 2 * margin;
+    try {
+      // Create a clean version for PDF generation
+      const element = previewRef.current;
+      
+      // Use html2canvas to capture the exact visual representation
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight
+      });
 
-    // Header with styling
-    pdf.setFillColor(245, 245, 245);
-    pdf.rect(0, 0, pageWidth, 40, 'F');
-    
-    pdf.setFontSize(22);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(resumeData.name, margin, 25);
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Create PDF with single page constraint
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate scaling to fit on one page
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / (imgWidth * 0.264583), pdfHeight / (imgHeight * 0.264583));
+      
+      const finalWidth = imgWidth * 0.264583 * ratio;
+      const finalHeight = imgHeight * 0.264583 * ratio;
+      
+      // Center the content on the page
+      const x = (pdfWidth - finalWidth) / 2;
+      const y = (pdfHeight - finalHeight) / 2;
+      
+      pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+      
+      // Download the PDF
+      const fileName = `${resumeData.name.replace(/\s+/g, '_')}_Cover_Letter_${application.company.replace(/\s+/g, '_')}.pdf`;
+      pdf.save(fileName);
+      
+      console.log('✅ PDF downloaded successfully - exactly what you see');
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      
+      // Fallback to text-based PDF
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.width;
+      const margin = 20;
+      const maxWidth = pageWidth - 2 * margin;
 
-    // Contact info
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    let yPos = 50;
-    pdf.text(`${resumeData.email} | ${resumeData.phone}`, margin, yPos);
-    pdf.text(`LinkedIn: linkedin.com/in/${resumeData.linkedin} | ${resumeData.location}`, margin, yPos + 5);
+      // Header with styling
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setFontSize(22);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(resumeData.name, margin, 25);
 
-    // Date and recipient
-    yPos += 20;
-    pdf.text(new Date().toLocaleDateString(), margin, yPos);
-    
-    yPos += 15;
-    const recipientInfo = [
-      'Hiring Manager',
-      application.company,
-      'Company Address',
-      'City, State ZIP'
-    ];
-    
-    recipientInfo.forEach(line => {
-      pdf.text(line, margin, yPos);
-      yPos += 5;
-    });
+      // Contact info
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      let yPos = 50;
+      pdf.text(`${resumeData.email} | ${resumeData.phone}`, margin, yPos);
+      pdf.text(`LinkedIn: linkedin.com/in/${resumeData.linkedin} | ${resumeData.location}`, margin, yPos + 5);
 
-    // Cover letter body
-    yPos += 15;
-    const lines = pdf.splitTextToSize(application.coverLetter, maxWidth);
-    
-    // Check if content fits on one page
-    if (yPos + lines.length * 5 > pdf.internal.pageSize.height - 50) {
-      // Add new page if needed
-      pdf.addPage();
-      yPos = 20;
+      // Date and recipient
+      yPos += 20;
+      pdf.text(new Date().toLocaleDateString(), margin, yPos);
+      
+      yPos += 15;
+      const recipientInfo = [
+        'Hiring Manager',
+        application.company,
+        'Company Address',
+        'City, State ZIP'
+      ];
+      
+      recipientInfo.forEach(line => {
+        pdf.text(line, margin, yPos);
+        yPos += 5;
+      });
+
+      // Cover letter body - ensure it fits on one page
+      yPos += 15;
+      const lines = pdf.splitTextToSize(application.coverLetter, maxWidth);
+      
+      // Calculate available space and truncate if necessary for one page
+      const availableHeight = pdf.internal.pageSize.height - yPos - 50; // Leave space for signature
+      const maxLines = Math.floor(availableHeight / 5);
+      
+      const finalLines = lines.slice(0, maxLines);
+      pdf.text(finalLines, margin, yPos);
+
+      // Signature area
+      const finalY = Math.min(yPos + finalLines.length * 5 + 20, pdf.internal.pageSize.height - 40);
+      pdf.text('Sincerely,', margin, finalY);
+      pdf.text(resumeData.name, margin, finalY + 15);
+
+      pdf.save(`${resumeData.name.replace(/\s+/g, '_')}_Cover_Letter_${application.company.replace(/\s+/g, '_')}.pdf`);
     }
-    
-    pdf.text(lines, margin, yPos);
+  };
 
-    // Signature area
-    const finalY = Math.max(yPos + lines.length * 5 + 20, pdf.internal.pageSize.height - 40);
-    pdf.text('Sincerely,', margin, finalY);
-    pdf.text(resumeData.name, margin, finalY + 15);
-
-    pdf.save(`${resumeData.name.replace(/\s+/g, '_')}_Cover_Letter_${application.company.replace(/\s+/g, '_')}.pdf`);
+  const handleCustomPromptSave = (newPrompt: string) => {
+    setCustomPrompt(newPrompt);
+    trackFeatureUsage('custom_prompt_saved', {
+      prompt_length: newPrompt.length,
+      is_custom: newPrompt !== ''
+    });
   };
 
   // Check if resume data is valid
@@ -416,7 +499,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
           </div>
           <h3 className="text-2xl font-bold text-gray-800 mb-4">AI is Crafting Your Cover Letter</h3>
           <p className="text-gray-600 mb-6">
-            Analyzing your resume and matching it with the job requirements...
+            {customPrompt ? 'Using your custom prompt to create a personalized cover letter...' : 'Analyzing your resume and matching it with the job requirements...'}
           </p>
           
           <div className="space-y-3 text-sm text-gray-600 mb-6">
@@ -434,7 +517,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
               ) : (
                 <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-500 rounded-full animate-spin mr-2"></div>
               )}
-              <span>Generating personalized content</span>
+              <span>{customPrompt ? 'Applying custom instructions' : 'Generating personalized content'}</span>
             </div>
           </div>
 
@@ -445,6 +528,12 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
             ></div>
           </div>
           <p className="text-xs text-gray-500">{generationProgress}% complete</p>
+          
+          {customPrompt && (
+            <div className="mt-4 text-xs text-purple-600 bg-purple-50 p-2 rounded-lg">
+              🎨 Using custom AI prompt for personalized results
+            </div>
+          )}
         </div>
       </div>
     );
@@ -452,6 +541,18 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      {/* Floating Custom Prompt Button */}
+      <button
+        onClick={() => {
+          setShowCustomPrompt(true);
+          trackFeatureUsage('open_custom_prompt');
+        }}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 z-40"
+        title="Customize AI Prompt"
+      >
+        <Wand2 size={24} />
+      </button>
+
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -466,18 +567,29 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
               Back to Resume Upload
             </button>
             
-            <button
-              onClick={() => setShowStorageDebugger(true)}
-              className="flex items-center text-gray-600 hover:text-blue-600 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
-              title="Storage Debugger"
-            >
-              <Settings size={20} className="mr-2" />
-              Storage Info
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowAccountLinking(true)}
+                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
+                title="Account Linking"
+              >
+                <Settings size={20} className="mr-2" />
+                Account
+              </button>
+              
+              <button
+                onClick={() => setShowStorageDebugger(true)}
+                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70"
+                title="Storage Debugger"
+              >
+                <Database size={20} className="mr-2" />
+                Storage
+              </button>
+            </div>
           </div>
           
           <h1 className="text-4xl font-bold text-gray-800 mb-2">AI Cover Letter Generator</h1>
-          <p className="text-gray-600">Create a tailored cover letter using Gemini AI with 1-week device storage</p>
+          <p className="text-gray-600">Create tailored one-page cover letters using AI {customPrompt && '(Custom prompt active)'}</p>
         </div>
 
         {error && (
@@ -543,8 +655,15 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                   className="w-full bg-gradient-to-r from-purple-400 to-blue-400 text-white py-4 rounded-2xl font-semibold hover:from-purple-500 hover:to-blue-500 transform hover:scale-[1.02] transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   <Sparkles className="mr-2" size={20} />
-                  Generate AI Cover Letter
+                  Generate One-Page Cover Letter
                 </button>
+                
+                {customPrompt && (
+                  <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded-lg flex items-center">
+                    <Wand2 size={12} className="mr-1" />
+                    Custom AI prompt active - click the floating button to edit
+                  </div>
+                )}
               </div>
             </div>
 
@@ -575,7 +694,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                 <p><strong>Experience:</strong> {resumeData.experience.length} entries</p>
                 <p><strong>Education:</strong> {resumeData.education.length} entries</p>
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-700 font-medium">📱 Data stored on device for 1 week + Firestore backup</p>
+                  <p className="text-xs text-blue-700 font-medium">📱 Data stored locally (1 week) + Firestore backup</p>
+                  <p className="text-xs text-blue-600 mt-1">💡 Company data used for generation only, not stored in database</p>
                 </div>
               </div>
             </div>
@@ -586,7 +706,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center">
                 <FileText className="text-green-500 mr-3" size={24} />
-                <h2 className="text-2xl font-bold text-gray-800">Cover Letter Preview</h2>
+                <h2 className="text-2xl font-bold text-gray-800">One-Page Cover Letter</h2>
               </div>
               
               {application && (
@@ -616,7 +736,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
 
             <div className="p-8 h-[600px] overflow-y-auto" ref={previewRef}>
               {application ? (
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[550px] overflow-hidden"> {/* Enforce one-page constraint */}
                   {/* Header */}
                   <div className="text-center border-b border-gray-200 pb-4 mb-6">
                     <h3 className="text-2xl font-bold text-gray-800">{resumeData.name}</h3>
@@ -641,7 +761,8 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                       <textarea
                         value={application.coverLetter}
                         onChange={(e) => handleCoverLetterEdit(e.target.value)}
-                        className="w-full h-64 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none text-sm"
+                        className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none text-sm"
+                        placeholder="Edit your cover letter here..."
                       />
                       <button
                         onClick={() => setIsEditing(false)}
@@ -654,7 +775,7 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line overflow-hidden">
                       {application.coverLetter}
                     </div>
                   )}
@@ -663,10 +784,10 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <div className="text-center">
                     <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                    <p className="text-lg mb-2">Your AI-generated cover letter will appear here</p>
+                    <p className="text-lg mb-2">Your one-page AI cover letter will appear here</p>
                     <p className="text-sm">Enter a job description and click generate to get started</p>
                     <p className="text-xs text-blue-600 mt-4 bg-blue-50 p-2 rounded-lg">
-                      📱 Data automatically stored on device for 1 week + Firestore backup
+                      📱 PDF download captures exactly what you see • Company data used for generation only
                     </p>
                   </div>
                 </div>
@@ -676,11 +797,34 @@ const CoverLetterGenerator: React.FC<CoverLetterGeneratorProps> = ({ resumeData,
         </div>
       </div>
 
+      {/* Custom Prompt Editor Modal */}
+      <CustomPromptEditor 
+        isVisible={showCustomPrompt}
+        onClose={() => setShowCustomPrompt(false)}
+        onSave={handleCustomPromptSave}
+        currentPrompt={customPrompt}
+      />
+
       {/* Storage Debugger Modal */}
       <StorageDebugger 
         isVisible={showStorageDebugger}
         onClose={() => setShowStorageDebugger(false)}
       />
+
+      {/* Account Linking Modal */}
+      {showAccountLinking && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <AccountLinking />
+            <button
+              onClick={() => setShowAccountLinking(false)}
+              className="mt-4 w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

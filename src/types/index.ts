@@ -1,6 +1,10 @@
 export interface User {
+  uid: string;
   email: string;
   name?: string;
+  linkedProviders: string[];
+  hasEmailProvider: boolean;
+  hasGoogleProvider: boolean;
 }
 
 export interface ResumeData {
@@ -20,4 +24,11 @@ export interface JobApplication {
   position: string;
   jobDescription: string;
   coverLetter: string;
+  customPrompt?: string; // Store custom prompt with the application
+}
+
+export interface CoverLetterRequest {
+  resumeData: ResumeData;
+  jobDescription: string;
+  customPrompt?: string;
 }

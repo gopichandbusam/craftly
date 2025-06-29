@@ -15,7 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import CookieConsent from './components/CookieConsent';
 import { AccessibilityProvider } from './components/AccessibilityProvider';
 import { ResumeData } from './types';
-import { LogOut, AlertCircle, Upload, Shield, FileText } from 'lucide-react';
+import { LogOut, AlertCircle, Upload, Shield, FileText, Users } from 'lucide-react';
 
 type AppState = 'login' | 'upload' | 'generate' | 'no-data' | 'privacy' | 'terms';
 
@@ -94,6 +94,7 @@ function App() {
     localStorage.removeItem('craftly_application');
     localStorage.removeItem('craftly_resume_id');
     localStorage.removeItem('craftly_application_id');
+    localStorage.removeItem('craftly_custom_prompt');
   };
 
   const handleRetryDataLoad = async () => {
@@ -200,12 +201,11 @@ function App() {
                   <AnimatedLogo />
                   <div className="text-center max-w-md">
                     <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                      Create Perfect Cover Letters
+                      Create Perfect One-Page Cover Letters
                     </h2>
                     <p className="text-gray-600 text-lg">
-                      Upload your resume and let AI generate personalized cover letters 
-                      tailored to any job description in seconds. All your data is securely 
-                      stored in the cloud for easy access.
+                      Upload your resume and let AI generate personalized one-page cover letters 
+                      tailored to any job description. Link multiple accounts for secure access.
                     </p>
                   </div>
                 </div>
@@ -302,9 +302,12 @@ function App() {
         <div className="relative">
           {/* User Info & Logout Button */}
           <div className="absolute top-6 right-6 z-10 flex items-center space-x-4">
-            <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-white/20">
-              <span className="text-sm text-gray-600">Welcome, </span>
+            <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-white/20 flex items-center">
+              <span className="text-sm text-gray-600 mr-2">Welcome, </span>
               <span className="text-sm font-semibold text-gray-800">{user.name}</span>
+              {user.linkedProviders && user.linkedProviders.length > 1 && (
+                <Users size={14} className="ml-2 text-green-500" title="Multiple accounts linked" />
+              )}
             </div>
             <button
               onClick={logout}
