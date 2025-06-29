@@ -1,8 +1,9 @@
-import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { createClient } from '@supabase/supabase-js';
 
-const db = getFirestore();
-const auth = getAuth();
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export interface AIModel {
   id: string;
@@ -27,6 +28,13 @@ const decryptApiKey = (encryptedKey: string): string => {
   }
 };
 
+// Get current user
+const getCurrentUser = async () => {
+  if (!supabase) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
+
 export const saveAPIKey = async (
   modelId: string,
   name: string,
@@ -34,9 +42,8 @@ export const saveAPIKey = async (
   apiKey: string,
   endpoint?: string
 ): Promise<string> => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('User not authenticated');
-
+  const user = await getCurrentUser();
+  
   const id = `${modelId}_${Date.now()}`;
   const modelData = {
     id,
@@ -45,63 +52,58 @@ export const saveAPIKey = async (
     apiKey: encryptApiKey(apiKey),
     endpoint,
     isActive: true,
-    createdAt: new Date(),
-    userId: user.uid
+    createdAt: new Date()
   };
 
+  // For demo mode or when Supabase is not configured
+  if (!user || !supabase) {
+    const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    localModels.push(modelData);
+    localStorage.setItem('craftly_ai_models', JSON.stringify(localModels));
+    console.log('✅ AI model saved to localStorage');
+    return id;
+  }
+
   try {
-    const modelRef = doc(db, 'aiModels', `${user.uid}_${id}`);
-    await setDoc(modelRef, modelData);
+    const { error } = await supabase
+      .from('ai_models')
+      .insert({
+        id,
+        name,
+        provider,
+        api_key: encryptApiKey(apiKey),
+        endpoint,
+        is_active: true,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      });
     
-    // Also save to localStorage for offline access (with encryption)
+    if (error) throw error;
+    
+    // Also save to localStorage for offline access
     const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
     localModels.push(modelData);
     localStorage.setItem('craftly_ai_models', JSON.stringify(localModels));
     
-    console.log('✅ AI model saved');
+    console.log('✅ AI model saved to Supabase');
     return id;
   } catch (error) {
-    console.error('❌ Failed to save AI model:', error);
-    throw error;
+    console.error('❌ Failed to save AI model to Supabase:', error);
+    
+    // Fallback to localStorage
+    const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    localModels.push(modelData);
+    localStorage.setItem('craftly_ai_models', JSON.stringify(localModels));
+    console.log('✅ AI model saved to localStorage (fallback)');
+    return id;
   }
 };
 
 export const loadAPIKeys = async (): Promise<AIModel[]> => {
-  const user = auth.currentUser;
-  if (!user) return [];
-
-  try {
-    // Try to load from Firestore first
-    const modelsRef = collection(db, 'aiModels');
-    const snapshot = await getDocs(modelsRef);
-    const models: AIModel[] = [];
-    
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.userId === user.uid) {
-        models.push({
-          id: data.id,
-          name: data.name,
-          provider: data.provider,
-          apiKey: decryptApiKey(data.apiKey),
-          endpoint: data.endpoint,
-          isActive: data.isActive,
-          createdAt: data.createdAt.toDate()
-        });
-      }
-    });
-    
-    if (models.length > 0) {
-      // Update localStorage with fresh data
-      localStorage.setItem('craftly_ai_models', JSON.stringify(models.map(m => ({
-        ...m,
-        apiKey: encryptApiKey(m.apiKey)
-      }))));
-      console.log('✅ AI models loaded from Firestore');
-      return models;
-    }
-    
-    // Fallback to localStorage
+  const user = await getCurrentUser();
+  
+  // For demo mode or when Supabase is not configured
+  if (!user || !supabase) {
     const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
     console.log('📱 AI models loaded from localStorage');
     return localModels.map((m: any) => ({
@@ -109,11 +111,51 @@ export const loadAPIKeys = async (): Promise<AIModel[]> => {
       apiKey: decryptApiKey(m.apiKey),
       createdAt: new Date(m.createdAt)
     }));
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_models')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+
+    const models = data.map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      provider: m.provider,
+      apiKey: decryptApiKey(m.api_key),
+      endpoint: m.endpoint,
+      isActive: m.is_active,
+      createdAt: new Date(m.created_at)
+    }));
+    
+    if (models.length > 0) {
+      // Update localStorage with fresh data
+      localStorage.setItem('craftly_ai_models', JSON.stringify(models.map(m => ({
+        ...m,
+        apiKey: encryptApiKey(m.apiKey)
+      }))));
+      console.log('✅ AI models loaded from Supabase');
+      return models;
+    }
+    
+    // Fallback to localStorage if no data in Supabase
+    const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    console.log('📱 AI models loaded from localStorage (fallback)');
+    return localModels.map((m: any) => ({
+      ...m,
+      apiKey: decryptApiKey(m.apiKey),
+      createdAt: new Date(m.createdAt)
+    }));
   } catch (error) {
-    console.error('❌ Failed to load AI models:', error);
+    console.error('❌ Failed to load AI models from Supabase:', error);
     
     // Fallback to localStorage
     const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    console.log('📱 AI models loaded from localStorage (fallback)');
     return localModels.map((m: any) => ({
       ...m,
       apiKey: decryptApiKey(m.apiKey),
@@ -123,23 +165,40 @@ export const loadAPIKeys = async (): Promise<AIModel[]> => {
 };
 
 export const deleteAPIKey = async (modelId: string): Promise<void> => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('User not authenticated');
+  const user = await getCurrentUser();
+  
+  // For demo mode or when Supabase is not configured
+  if (!user || !supabase) {
+    const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    const updatedModels = localModels.filter((m: AIModel) => m.id !== modelId);
+    localStorage.setItem('craftly_ai_models', JSON.stringify(updatedModels));
+    console.log('✅ AI model deleted from localStorage');
+    return;
+  }
 
   try {
-    // Delete from Firestore
-    const modelRef = doc(db, 'aiModels', `${user.uid}_${modelId}`);
-    await deleteDoc(modelRef);
+    const { error } = await supabase
+      .from('ai_models')
+      .delete()
+      .eq('id', modelId)
+      .eq('user_id', user.id);
     
-    // Delete from localStorage
+    if (error) throw error;
+    
+    // Delete from localStorage too
     const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
     const updatedModels = localModels.filter((m: AIModel) => m.id !== modelId);
     localStorage.setItem('craftly_ai_models', JSON.stringify(updatedModels));
     
-    console.log('✅ AI model deleted');
+    console.log('✅ AI model deleted from Supabase');
   } catch (error) {
-    console.error('❌ Failed to delete AI model:', error);
-    throw error;
+    console.error('❌ Failed to delete AI model from Supabase:', error);
+    
+    // Fallback: delete from localStorage only
+    const localModels = JSON.parse(localStorage.getItem('craftly_ai_models') || '[]');
+    const updatedModels = localModels.filter((m: AIModel) => m.id !== modelId);
+    localStorage.setItem('craftly_ai_models', JSON.stringify(updatedModels));
+    console.log('✅ AI model deleted from localStorage (fallback)');
   }
 };
 

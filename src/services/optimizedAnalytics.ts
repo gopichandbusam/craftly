@@ -1,15 +1,18 @@
-import { getAnalytics, logEvent } from 'firebase/analytics';
-import { getAuth } from 'firebase/auth';
+// Optimized analytics without Firebase - uses local storage and console logging
+// In production, you can integrate with your preferred analytics service
 
-const analytics = getAnalytics();
-const auth = getAuth();
+interface AnalyticsEvent {
+  event: string;
+  params: any;
+  timestamp: string;
+}
 
 // Throttle analytics events to reduce overhead
 const eventThrottle = new Map<string, number>();
 const THROTTLE_DURATION = 5000; // 5 seconds
 
 class AnalyticsOptimizer {
-  private static eventQueue: Array<{event: string, params: any}> = [];
+  private static eventQueue: AnalyticsEvent[] = [];
   private static flushTimeout: NodeJS.Timeout | null = null;
 
   static trackEvent(event: string, params: any = {}) {
@@ -25,7 +28,11 @@ class AnalyticsOptimizer {
     eventThrottle.set(eventKey, now);
     
     // Queue the event
-    this.eventQueue.push({ event, params });
+    this.eventQueue.push({ 
+      event, 
+      params, 
+      timestamp: new Date().toISOString() 
+    });
     
     // Batch events
     if (this.flushTimeout) {
@@ -43,18 +50,24 @@ class AnalyticsOptimizer {
     const events = [...this.eventQueue];
     this.eventQueue = [];
     
-    console.log(`📊 Flushing ${events.length} analytics events`);
+    console.log(`📊 Analytics Events (${events.length}):`, events);
     
-    events.forEach(({ event, params }) => {
-      try {
-        logEvent(analytics, event, {
-          ...params,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        console.warn('Analytics event failed:', error);
-      }
-    });
+    // Store events in localStorage for potential later use
+    try {
+      const existingEvents = JSON.parse(localStorage.getItem('craftly_analytics') || '[]');
+      const allEvents = [...existingEvents, ...events].slice(-100); // Keep last 100 events
+      localStorage.setItem('craftly_analytics', JSON.stringify(allEvents));
+    } catch (error) {
+      console.warn('Failed to store analytics events:', error);
+    }
+
+    // In production, send events to your analytics service here
+    // Example:
+    // await fetch('/api/analytics', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(events)
+    // });
   }
 }
 
@@ -79,12 +92,12 @@ export const trackFeatureUsage = (feature: string) => {
 };
 
 // User authentication tracking functions
-export const trackUserSignup = (method: string, success: boolean) => {
-  AnalyticsOptimizer.trackEvent('user_signup', { method, success });
+export const trackUserSignup = (method: string, userData: any) => {
+  AnalyticsOptimizer.trackEvent('user_signup', { method, success: true });
 };
 
-export const trackUserLogin = (method: string, success: boolean) => {
-  AnalyticsOptimizer.trackEvent('user_login', { method, success });
+export const trackUserLogin = (method: string, userData: any) => {
+  AnalyticsOptimizer.trackEvent('user_login', { method, success: true });
 };
 
 export const trackUserLogout = () => {
