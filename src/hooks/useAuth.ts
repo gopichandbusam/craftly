@@ -14,7 +14,7 @@ import {
   AuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { initializeUserDocument } from '../services/firebaseStorage';
+import { initializeUserDocument } from '../services/optimizedFirebaseStorage';
 import { trackUserSignup, trackUserLogin, trackUserLogout, trackUserSessionStart, trackUserSessionEnd } from '../services/optimizedAnalytics';
 import { User } from '../types';
 
