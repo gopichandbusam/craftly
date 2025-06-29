@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader, RefreshCw, WifiOff } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader, RefreshCw, WifiOff, Database } from 'lucide-react';
 import { ResumeData } from '../types';
 import { parseResumeFromText, parseResumeFromPDF } from '../services/resumeParser';
 import { validateResumeData } from '../services/dataValidator';
-import { saveResumeToFirebase, updateResumeInFirebase } from '../services/firebaseStorage';
+import { uploadResumeToSupabase } from '../services/supabaseStorage';
+import { saveResumeDataToFirebase, updateResumeInFirebase } from '../services/firebaseStorage';
 import { 
   trackResumeUploadStart, 
   trackResumeProcessingSuccess, 
@@ -29,6 +30,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
   const [processingStage, setProcessingStage] = useState<string>('');
   const [validationResult, setValidationResult] = useState<any>(null);
   const [isGeminiApiError, setIsGeminiApiError] = useState(false);
+  const [isSupabaseError, setIsSupabaseError] = useState(false);
 
   const processFile = async (file: File) => {
     const startTime = Date.now();
@@ -52,43 +54,66 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
       throw new Error(error);
     }
 
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      const error = 'Supabase configuration is missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.';
+      setIsSupabaseError(true);
+      trackResumeProcessingError({
+        error,
+        errorType: 'supabase_config',
+        processingTime: (Date.now() - startTime) / 1000,
+        sourceType: file.type
+      });
+      throw new Error(error);
+    }
+
     setIsProcessing(true);
     setError('');
     setPreviewData(null);
     setValidationResult(null);
     setIsGeminiApiError(false);
-    setProcessingStage('Initializing AI processing...');
+    setIsSupabaseError(false);
+    setProcessingStage('Uploading file to secure cloud storage...');
 
     try {
-      console.log('🚀 Starting comprehensive resume processing...');
-      let resumeData: ResumeData;
+      console.log('🚀 Starting comprehensive resume processing with Supabase + Firebase...');
       
+      // Step 1: Upload file to Supabase Storage
+      console.log('📁 Step 1: Uploading to Supabase Storage...');
+      setProcessingStage('Uploading to Supabase cloud storage...');
+      const fileMetadata = await uploadResumeToSupabase(file);
+      console.log('✅ File uploaded to Supabase successfully:', fileMetadata);
+
+      // Step 2: Parse resume content with AI
+      let resumeData: ResumeData;
       if (file.type === 'application/pdf') {
-        console.log('📄 Processing as PDF file');
-        setProcessingStage('Extracting text from PDF...');
+        console.log('📄 Step 2: Processing as PDF file with AI...');
+        setProcessingStage('Extracting text from PDF with AI...');
         resumeData = await parseResumeFromPDF(file);
       } else {
-        console.log('📝 Processing as text file');
-        setProcessingStage('Reading and analyzing text content...');
+        console.log('📝 Step 2: Processing as text file with AI...');
+        setProcessingStage('Analyzing text content with AI...');
         const text = await file.text();
         resumeData = await parseResumeFromText(text);
       }
       
       setProcessingStage('Validating extracted data...');
       
-      // Validate the extracted data
+      // Step 3: Validate the extracted data
       const validation = validateResumeData(resumeData);
       setValidationResult(validation);
       
-      setProcessingStage('Saving to cloud storage...');
+      // Step 4: Save to Firebase with Supabase file reference
+      setProcessingStage('Saving to Firebase with file reference...');
       
-      // Save to Firebase
       try {
-        await saveResumeToFirebase(resumeData);
-        console.log('✅ Resume data saved to Firebase successfully');
+        await saveResumeDataToFirebase(resumeData, fileMetadata);
+        console.log('✅ Resume data and file metadata saved to Firebase successfully');
         trackFirebaseOperation('save', 'resume', true);
       } catch (firebaseError) {
         console.warn('⚠️ Firebase save failed, continuing with localStorage:', firebaseError);
+        setError(`Data saved locally - cloud sync will retry automatically: ${firebaseError instanceof Error ? firebaseError.message : 'Unknown error'}`);
+        localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
+        localStorage.setItem('craftly_resume_file', JSON.stringify(fileMetadata));
         trackFirebaseOperation('save', 'resume', false, firebaseError instanceof Error ? firebaseError.message : 'Unknown error');
       }
       
@@ -104,18 +129,20 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
 
       // Track performance
       trackPerformance({
-        action: 'resume_processing',
+        action: 'resume_processing_with_supabase',
         duration: Date.now() - startTime,
         success: true,
         additionalData: {
           file_type: file.type,
           file_size_mb: (file.size / 1024 / 1024).toFixed(2),
-          validation_score: validation.score
+          validation_score: validation.score,
+          supabase_upload: true
         }
       });
       
-      console.log('✅ Resume processing completed successfully!');
+      console.log('✅ Complete resume processing pipeline completed successfully!');
       console.log('📊 FINAL RESUME DATA FOR UI:', resumeData);
+      console.log('📁 SUPABASE FILE METADATA:', fileMetadata);
       console.log('📊 Validation results:', validation);
       
       setPreviewData(resumeData);
@@ -124,18 +151,26 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
       setTimeout(() => {
         setIsProcessing(false);
         setProcessingStage('');
-        console.log('🎉 UI updated with processed and validated resume data');
+        console.log('🎉 UI updated with processed and validated resume data + Supabase file storage');
       }, 1000);
     } catch (error) {
       console.error('❌ Error processing file:', error);
       
       const processingTime = (Date.now() - startTime) / 1000;
-      let errorType: 'gemini_api' | 'pdf_parsing' | 'network' | 'validation' | 'unknown' = 'unknown';
+      let errorType: 'gemini_api' | 'supabase_upload' | 'supabase_config' | 'pdf_parsing' | 'network' | 'validation' | 'unknown' = 'unknown';
       
-      // Check if it's a Gemini API error
+      // Check if it's a Supabase error
       if (error instanceof Error) {
         const errorMessage = error.message.toLowerCase();
-        if (errorMessage.includes('gemini api') || 
+        if (errorMessage.includes('supabase') || 
+            errorMessage.includes('vite_supabase_url') ||
+            errorMessage.includes('vite_supabase_anon_key')) {
+          setIsSupabaseError(true);
+          errorType = 'supabase_config';
+        } else if (errorMessage.includes('upload') || errorMessage.includes('bucket')) {
+          setIsSupabaseError(true);
+          errorType = 'supabase_upload';
+        } else if (errorMessage.includes('gemini api') || 
             errorMessage.includes('gopichand busam') ||
             errorMessage.includes('api key') ||
             errorMessage.includes('google generative ai')) {
@@ -160,7 +195,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
 
       // Track performance (failed)
       trackPerformance({
-        action: 'resume_processing',
+        action: 'resume_processing_with_supabase',
         duration: Date.now() - startTime,
         success: false,
         additionalData: {
@@ -208,7 +243,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
       await processFile(file);
     } catch (error) {
       console.error('❌ File processing failed:', error);
-      setError(`Failed to process the resume: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key and try again.`);
+      setError(`Failed to process the resume: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your configuration and try again.`);
       setIsProcessing(false);
       setProcessingStage('');
       setUploadedFile(null);
@@ -231,7 +266,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
       trackFeatureUsage('continue_to_cover_letter', {
         validation_score: validationResult?.score || 0,
         skills_count: previewData.skills.length,
-        experience_count: previewData.experience.length
+        experience_count: previewData.experience.length,
+        storage_backend: 'supabase_firebase'
       });
       onResumeProcessed(previewData);
     }
@@ -242,7 +278,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
       console.log('🔄 Retrying file processing...');
       trackFeatureUsage('retry_processing', {
         file_type: uploadedFile.type,
-        was_gemini_error: isGeminiApiError
+        was_gemini_error: isGeminiApiError,
+        was_supabase_error: isSupabaseError
       });
       
       try {
@@ -270,6 +307,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
     setProcessingStage('');
     setValidationResult(null);
     setIsGeminiApiError(false);
+    setIsSupabaseError(false);
     
     trackFeatureUsage('reset_upload');
   };
@@ -296,7 +334,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
           </div>
           <h3 className="text-2xl font-bold text-gray-800 mb-4">AI Processing Your Resume</h3>
           <p className="text-gray-600 mb-4">
-            Our advanced AI is comprehensively analyzing your resume with intelligent data extraction and validation...
+            Uploading to Supabase cloud storage and analyzing with AI for comprehensive data extraction...
           </p>
           
           <div className="bg-blue-50 rounded-lg p-3 mb-4">
@@ -309,8 +347,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
               <span>Document uploaded and validated</span>
             </div>
             <div className="flex items-center justify-center">
-              <CheckCircle size={16} className="text-green-500 mr-2" />
-              <span>Text extraction completed</span>
+              <Database size={16} className="text-blue-500 mr-2" />
+              <span>Secure file storage in Supabase</span>
             </div>
             <div className="flex items-center justify-center">
               <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-500 rounded-full animate-spin mr-2"></div>
@@ -318,13 +356,13 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
             </div>
             <div className="flex items-center justify-center text-gray-400">
               <div className="w-4 h-4 border-2 border-gray-200 rounded-full mr-2"></div>
-              <span>Saving to cloud storage</span>
+              <span>Saving metadata to Firebase</span>
             </div>
           </div>
           
           <div className="mt-6 text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
-            <p className="font-medium mb-1">🔍 Advanced Processing</p>
-            <p>AI is performing comprehensive data extraction, categorization, and cloud storage</p>
+            <p className="font-medium mb-1">🔍 Hybrid Cloud Architecture</p>
+            <p>Files stored in Supabase, metadata in Firebase for optimal performance and security</p>
           </div>
         </div>
       </div>
@@ -337,7 +375,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold text-gray-800 mb-4">Upload Your Resume</h2>
           <p className="text-gray-600 text-lg">
-            Drop your resume here and let our advanced AI comprehensively analyze it with intelligent data extraction
+            Secure Supabase storage with AI-powered analysis and Firebase metadata management
           </p>
         </div>
 
@@ -345,16 +383,22 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
           <div className={`mb-6 p-4 border rounded-2xl flex items-start ${
             isGeminiApiError 
               ? 'bg-orange-50 border-orange-200 text-orange-700' 
+              : isSupabaseError
+              ? 'bg-purple-50 border-purple-200 text-purple-700'
               : 'bg-red-50 border-red-200 text-red-700'
           }`}>
             {isGeminiApiError ? (
               <WifiOff size={20} className="mr-3 flex-shrink-0 mt-0.5" />
+            ) : isSupabaseError ? (
+              <Database size={20} className="mr-3 flex-shrink-0 mt-0.5" />
             ) : (
               <AlertCircle size={20} className="mr-3 flex-shrink-0 mt-0.5" />
             )}
             <div className="flex-1">
               <p className="font-medium mb-1">
-                {isGeminiApiError ? 'Gemini AI Service Issue' : 'Processing Error'}
+                {isGeminiApiError ? 'Gemini AI Service Issue' : 
+                 isSupabaseError ? 'Supabase Storage Issue' : 
+                 'Processing Error'}
               </p>
               <p className="text-sm">{error}</p>
               <div className="mt-3 flex space-x-2">
@@ -364,11 +408,15 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
                     className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center ${
                       isGeminiApiError 
                         ? 'bg-orange-100 hover:bg-orange-200' 
+                        : isSupabaseError
+                        ? 'bg-purple-100 hover:bg-purple-200'
                         : 'bg-red-100 hover:bg-red-200'
                     }`}
                   >
                     <RefreshCw size={14} className="mr-1" />
-                    {isGeminiApiError ? 'Retry When Fixed' : 'Retry Processing'}
+                    {isGeminiApiError ? 'Retry When Fixed' : 
+                     isSupabaseError ? 'Retry Upload' : 
+                     'Retry Processing'}
                   </button>
                 )}
                 <button
@@ -385,6 +433,15 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
                   <p className="text-xs text-orange-700 mt-1">
                     The Gemini AI service is currently experiencing issues. 
                     Please wait for Gopichand Busam to resolve this, or try again later.
+                  </p>
+                </div>
+              )}
+              
+              {isSupabaseError && (
+                <div className="mt-3 p-3 bg-purple-100 rounded-lg">
+                  <p className="text-xs text-purple-800 font-medium">💾 Storage Configuration</p>
+                  <p className="text-xs text-purple-700 mt-1">
+                    Supabase storage is not properly configured. Please check environment variables or contact support.
                   </p>
                 </div>
               )}
@@ -445,7 +502,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
                     <p className="text-xs text-green-600 mt-2">✓ File validated and processed successfully</p>
                     {validationResult && (
                       <p className="text-xs text-blue-600 mt-1">
-                        Quality Score: {validationResult.score}/100 | Saved to cloud storage
+                        Quality Score: {validationResult.score}/100 | Stored in Supabase + Firebase
                       </p>
                     )}
                   </div>
@@ -467,27 +524,27 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
 
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                <FileText size={16} />
-                <span>Comprehensive AI-powered extraction with cloud storage</span>
+                <Database size={16} />
+                <span>Hybrid cloud architecture with secure file storage</span>
               </div>
               
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4">
-                <h4 className="font-semibold text-gray-800 mb-2">Advanced AI Features:</h4>
+                <h4 className="font-semibold text-gray-800 mb-2">Advanced Cloud Architecture:</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                  <div>• Intelligent data categorization</div>
-                  <div>• Skills classification</div>
-                  <div>• Experience parsing</div>
-                  <div>• Education extraction</div>
-                  <div>• Contact validation</div>
-                  <div>• Quality assessment</div>
-                  <div>• Cloud synchronization</div>
-                  <div>• Data persistence</div>
+                  <div>• Supabase file storage</div>
+                  <div>• Firebase metadata</div>
+                  <div>• AI content analysis</div>
+                  <div>• Real-time validation</div>
+                  <div>• Automatic backups</div>
+                  <div>• Cross-platform sync</div>
+                  <div>• Data redundancy</div>
+                  <div>• Security compliance</div>
                 </div>
               </div>
               
               <div className="text-center text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
-                <p className="font-medium mb-1">☁️ Firebase Integration</p>
-                <p>Your resume data is automatically saved to Firebase cloud storage for easy access across devices</p>
+                <p className="font-medium mb-1">🔒 Secure Hybrid Storage</p>
+                <p>Files stored in Supabase for performance, metadata in Firebase for reliability</p>
               </div>
             </div>
           </div>
@@ -504,15 +561,16 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeProcessed }) => {
             <div className="bg-gray-50/50 rounded-2xl p-6 flex items-center justify-center">
               <div className="text-center text-gray-400">
                 <FileText size={64} className="mx-auto mb-4 opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">Comprehensive AI Resume Analysis</h3>
-                <p className="text-lg mb-4">Upload a resume to see intelligent extraction and validation</p>
+                <h3 className="text-xl font-semibold mb-2">Hybrid Cloud Resume Analysis</h3>
+                <p className="text-lg mb-4">Upload a resume to see intelligent extraction with secure storage</p>
                 <div className="space-y-2 text-sm">
                   <p>🤖 Advanced AI parsing technology</p>
                   <p>📊 Intelligent data categorization</p>
                   <p>✅ Real-time quality validation</p>
                   <p>🔄 Error recovery and fallback systems</p>
                   <p>📈 Data quality scoring</p>
-                  <p>☁️ Automatic cloud synchronization</p>
+                  <p>💾 Supabase secure file storage</p>
+                  <p>☁️ Firebase metadata synchronization</p>
                   <p>✏️ In-place content editing</p>
                 </div>
               </div>

@@ -6,7 +6,7 @@
   "description": "AI-powered resume parsing and cover letter generation platform",
   "author": "Gopichand Busam",
   "license": "MIT",
-  "keywords": ["ai", "resume", "cover-letter", "job-application", "firebase", "react"],
+  "keywords": ["ai", "resume", "cover-letter", "job-application", "firebase", "supabase", "react"],
   "homepage": "https://craftly.gopichand.me",
   "repository": {
     "type": "git",
@@ -29,7 +29,8 @@
     "html2canvas": "^1.4.1",
     "@google/generative-ai": "^0.21.0",
     "pdfjs-dist": "^4.0.379",
-    "firebase": "^10.7.1"
+    "firebase": "^10.7.1",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { ResumeData, JobApplication } from '../types';
+import { ResumeFileMetadata } from './supabaseStorage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,7 +21,9 @@ const auth = getAuth(app);
 export interface UserData {
   name: string;
   email: string;
-  resumeLink: string; // URL or reference to resume document
+  // Supabase file metadata
+  resumeFile: ResumeFileMetadata | null;
+  // Parsed resume data
   parsedData: ResumeData | null;
   applications: JobApplication[];
   createdAt: Date;
@@ -44,8 +47,8 @@ export const initializeUserDocument = async (name: string, email: string): Promi
       const userData: UserData = {
         name,
         email,
-        resumeLink: '',
-        parsedData: null,
+        resumeFile: null, // Supabase file metadata
+        parsedData: null, // Parsed resume data
         applications: [],
         createdAt: new Date(),
         updatedAt: new Date()
@@ -68,15 +71,18 @@ export const initializeUserDocument = async (name: string, email: string): Promi
   }
 };
 
-// Save resume data to user document
-export const saveResumeToFirebase = async (resumeData: ResumeData): Promise<string> => {
+// Save resume data and Supabase file metadata to Firebase
+export const saveResumeDataToFirebase = async (
+  resumeData: ResumeData, 
+  fileMetadata: ResumeFileMetadata
+): Promise<string> => {
   try {
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('User not authenticated - cannot save resume to cloud');
+      throw new Error('User not authenticated - cannot save resume to Firebase');
     }
 
-    console.log('💾 Saving resume to Firebase for user:', user.uid);
+    console.log('💾 Saving resume data and file metadata to Firebase...');
     
     // Validate resume data before saving
     if (!resumeData.name || !resumeData.email) {
@@ -91,32 +97,30 @@ export const saveResumeToFirebase = async (resumeData: ResumeData): Promise<stri
       throw new Error('User document does not exist - please refresh and try again');
     }
 
-    const resumeLink = `users/${user.uid}/resume_${Date.now()}`;
-    
     await updateDoc(userDocRef, {
-      resumeLink,
-      parsedData: resumeData,
+      resumeFile: fileMetadata, // Supabase file metadata
+      parsedData: resumeData,   // Parsed resume data
       updatedAt: new Date()
     });
     
-    console.log('✅ Resume saved to Firebase user document');
+    console.log('✅ Resume data and file metadata saved to Firebase');
     
     // Also save to localStorage as backup
     localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
-    localStorage.setItem('craftly_resume_link', resumeLink);
+    localStorage.setItem('craftly_resume_file', JSON.stringify(fileMetadata));
     
-    return resumeLink;
+    return fileMetadata.bucketPath;
   } catch (error) {
-    console.error('❌ Error saving resume to Firebase:', error);
+    console.error('❌ Error saving resume data to Firebase:', error);
     // Fallback to localStorage only
     localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown cloud storage error';
-    throw new Error(`Failed to save resume to cloud storage: ${errorMessage}. Data saved locally as backup.`);
+    throw new Error(`Failed to save resume to Firebase: ${errorMessage}. Data saved locally as backup.`);
   }
 };
 
-// Load resume data from user document
+// Load resume data from Firebase (metadata points to Supabase file)
 export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
   try {
     const user = auth.currentUser;
@@ -130,7 +134,7 @@ export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
       return null;
     }
 
-    console.log('📄 Loading resume from Firebase for user:', user.uid);
+    console.log('📄 Loading resume data from Firebase for user:', user.uid);
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -147,19 +151,21 @@ export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
 
     const userData = userDoc.data() as UserData;
     const resumeData = userData.parsedData;
+    const fileMetadata = userData.resumeFile;
     
     if (resumeData && resumeData.name && resumeData.email) {
-      console.log('✅ Resume loaded from Firebase user document:', resumeData);
+      console.log('✅ Resume data loaded from Firebase:', resumeData);
+      console.log('📁 Associated file metadata:', fileMetadata);
       
       // Update localStorage as backup
       localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
-      if (userData.resumeLink) {
-        localStorage.setItem('craftly_resume_link', userData.resumeLink);
+      if (fileMetadata) {
+        localStorage.setItem('craftly_resume_file', JSON.stringify(fileMetadata));
       }
       
       return resumeData;
     } else {
-      console.log('📄 No valid resume data in user document, checking localStorage backup');
+      console.log('📄 No valid resume data in Firebase, checking localStorage backup');
       const localResume = localStorage.getItem('craftly_resume');
       if (localResume) {
         console.log('📄 Resume loaded from localStorage backup');
@@ -180,15 +186,61 @@ export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
   }
 };
 
+// Get resume file metadata from Firebase
+export const getResumeFileMetadata = async (): Promise<ResumeFileMetadata | null> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('⚠️ User not authenticated, checking localStorage backup');
+      const localFile = localStorage.getItem('craftly_resume_file');
+      if (localFile) {
+        console.log('📁 Resume file metadata loaded from localStorage backup');
+        return JSON.parse(localFile);
+      }
+      return null;
+    }
+
+    console.log('📁 Loading resume file metadata from Firebase...');
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      console.log('📁 No user document found');
+      return null;
+    }
+
+    const userData = userDoc.data() as UserData;
+    const fileMetadata = userData.resumeFile;
+    
+    if (fileMetadata) {
+      console.log('✅ Resume file metadata loaded from Firebase:', fileMetadata);
+      localStorage.setItem('craftly_resume_file', JSON.stringify(fileMetadata));
+      return fileMetadata;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading resume file metadata:', error);
+    // Fallback to localStorage
+    const localFile = localStorage.getItem('craftly_resume_file');
+    if (localFile) {
+      console.log('📁 Fallback: Resume file metadata loaded from localStorage');
+      return JSON.parse(localFile);
+    }
+    return null;
+  }
+};
+
 // Update existing resume data
 export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<void> => {
   try {
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('User not authenticated - cannot update resume in cloud');
+      throw new Error('User not authenticated - cannot update resume in Firebase');
     }
 
-    console.log('🔄 Updating resume in Firebase user document');
+    console.log('🔄 Updating resume data in Firebase...');
     
     // Validate resume data before saving
     if (!resumeData.name || !resumeData.email) {
@@ -208,7 +260,7 @@ export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<vo
       updatedAt: new Date()
     });
     
-    console.log('✅ Resume updated in Firebase user document');
+    console.log('✅ Resume data updated in Firebase');
     
     // Update localStorage as backup
     localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
@@ -218,7 +270,7 @@ export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<vo
     localStorage.setItem('craftly_resume', JSON.stringify(resumeData));
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown cloud storage error';
-    throw new Error(`Failed to update resume in cloud storage: ${errorMessage}. Data saved locally as backup.`);
+    throw new Error(`Failed to update resume in Firebase: ${errorMessage}. Data saved locally as backup.`);
   }
 };
 
@@ -227,10 +279,10 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
   try {
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('User not authenticated - cannot save application to cloud');
+      throw new Error('User not authenticated - cannot save application to Firebase');
     }
     
-    console.log('💾 Saving application to Firebase user document');
+    console.log('💾 Saving application to Firebase...');
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -257,7 +309,7 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
       updatedAt: new Date()
     });
     
-    console.log('✅ Application saved to Firebase user document');
+    console.log('✅ Application saved to Firebase');
     
     // Also save to localStorage as backup
     localStorage.setItem('craftly_application', JSON.stringify(applicationData));
@@ -270,7 +322,7 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
     localStorage.setItem('craftly_application', JSON.stringify(applicationData));
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown cloud storage error';
-    throw new Error(`Failed to save application to cloud storage: ${errorMessage}. Data saved locally as backup.`);
+    throw new Error(`Failed to save application to Firebase: ${errorMessage}. Data saved locally as backup.`);
   }
 };
 
@@ -288,7 +340,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
       return null;
     }
 
-    console.log('📋 Loading application from Firebase user document');
+    console.log('📋 Loading application from Firebase...');
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -307,7 +359,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
     const applications = userData.applications || [];
     
     if (applications.length === 0) {
-      console.log('📋 No applications found in user document, checking localStorage backup');
+      console.log('📋 No applications found in Firebase, checking localStorage backup');
       const localApplication = localStorage.getItem('craftly_application');
       if (localApplication) {
         console.log('📋 Application loaded from localStorage backup');
@@ -323,7 +375,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
       return currentTime > latestTime ? current : latest;
     });
 
-    console.log('✅ Application loaded from Firebase user document:', mostRecentApplication);
+    console.log('✅ Application loaded from Firebase:', mostRecentApplication);
     
     // Update localStorage as backup
     localStorage.setItem('craftly_application', JSON.stringify(mostRecentApplication));
@@ -352,7 +404,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
   try {
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('User not authenticated - cannot update application in cloud');
+      throw new Error('User not authenticated - cannot update application in Firebase');
     }
 
     const applicationId = localStorage.getItem('craftly_application_id');
@@ -362,7 +414,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
       return;
     }
 
-    console.log('🔄 Updating application in Firebase user document:', applicationId);
+    console.log('🔄 Updating application in Firebase:', applicationId);
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -392,7 +444,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
       updatedAt: new Date()
     });
     
-    console.log('✅ Application updated in Firebase user document');
+    console.log('✅ Application updated in Firebase');
     
     // Update localStorage as backup
     localStorage.setItem('craftly_application', JSON.stringify(applicationData));
@@ -402,7 +454,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
     localStorage.setItem('craftly_application', JSON.stringify(applicationData));
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown cloud storage error';
-    throw new Error(`Failed to update application in cloud storage: ${errorMessage}. Data saved locally as backup.`);
+    throw new Error(`Failed to update application in Firebase: ${errorMessage}. Data saved locally as backup.`);
   }
 };
 
