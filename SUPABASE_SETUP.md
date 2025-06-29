@@ -23,43 +23,31 @@ This application uses a hybrid cloud architecture:
    - Public: `false` (keep private for security)
    - Click **Create bucket**
 
-### 3. Set Storage Policies (Security)
+### 3. Set Storage Policy (Security)
 1. In the Storage section, click on `resume-files` bucket
 2. Click **Policies** tab
-3. Create the following policies:
+3. Create this comprehensive policy that handles all operations:
 
-#### Upload Policy
+#### Combined Policy (Upload, Read, Delete)
 ```sql
-CREATE POLICY "Users can upload their own resume files"
-ON storage.objects FOR INSERT
+CREATE POLICY "Users can manage their own resume files"
+ON storage.objects FOR ALL
 TO authenticated
+USING (
+  bucket_id = 'resume-files' 
+  AND auth.uid()::text = (storage.foldername(name))[1]
+)
 WITH CHECK (
   bucket_id = 'resume-files' 
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 ```
 
-#### Read Policy
-```sql
-CREATE POLICY "Users can read their own resume files"
-ON storage.objects FOR SELECT
-TO authenticated
-USING (
-  bucket_id = 'resume-files' 
-  AND auth.uid()::text = (storage.foldername(name))[1]
-);
-```
-
-#### Delete Policy
-```sql
-CREATE POLICY "Users can delete their own resume files"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (
-  bucket_id = 'resume-files' 
-  AND auth.uid()::text = (storage.foldername(name))[1]
-);
-```
+**This single policy replaces all three separate policies and provides:**
+- ✅ **Upload permission** (INSERT) - users can upload files to their folder
+- ✅ **Read permission** (SELECT) - users can view/download their files
+- ✅ **Delete permission** (DELETE) - users can remove their files
+- ✅ **Update permission** (UPDATE) - users can modify file metadata
 
 ### 4. Get Environment Variables
 1. Go to **Settings** → **API** in your Supabase project
@@ -92,9 +80,10 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 ### File Storage Security
 - Files are stored in private buckets (not publicly accessible)
-- Row Level Security (RLS) ensures users can only access their own files
+- Single Row Level Security (RLS) policy controls all file operations
 - File size limits (10MB) enforced
 - File type validation (PDF, DOC, DOCX, TXT only)
+- Users can only access files in their own folder (`/resumes/{user_id}/`)
 
 ### Data Architecture
 ```
@@ -122,6 +111,27 @@ Application uses both for complete functionality
 - ✅ Complex queries and indexing
 - ✅ Excellent mobile/web SDKs
 - ✅ Proven reliability
+
+## 🔍 Policy Explanation
+
+### How the Combined Policy Works:
+
+```sql
+-- Policy breakdown:
+bucket_id = 'resume-files'                    -- Only applies to our resume bucket
+AND auth.uid()::text = (storage.foldername(name))[1]  -- User can only access their folder
+```
+
+**File Path Structure:**
+- User files stored as: `/resumes/{user_id}/filename.pdf`
+- `(storage.foldername(name))[1]` extracts the `{user_id}` from the path
+- `auth.uid()::text` gets the current authenticated user's ID
+- Policy ensures: User ID in path = Current user ID
+
+**Operations Covered:**
+- **FOR ALL** includes: SELECT, INSERT, UPDATE, DELETE
+- **USING clause**: Controls read and delete operations
+- **WITH CHECK clause**: Controls insert and update operations
 
 ## 🔍 Monitoring & Maintenance
 
@@ -160,7 +170,7 @@ Application uses both for complete functionality
 
 ### Common Issues:
 1. **"Supabase URL not found"**: Check environment variables are set correctly
-2. **"Access denied"**: Verify RLS policies are created properly
+2. **"Access denied"**: Verify RLS policy is created properly
 3. **"File upload failed"**: Check bucket name and permissions
 
 ### Support:
