@@ -30,9 +30,9 @@ export const useAuth = () => {
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
         };
         
-        // Initialize user document in Firebase
+        // Initialize user document - this is a LOGIN EVENT, so update updatedAt
         try {
-          await initializeUserDocument(userData.name, userData.email);
+          await initializeUserDocument(userData.name, userData.email, true); // true = login event
         } catch (error) {
           console.warn('⚠️ Failed to initialize user document:', error);
         }
@@ -77,11 +77,12 @@ export const useAuth = () => {
       // Track successful login
       trackUserLogin('email', userData);
       
-      // Initialize user document in Firebase
+      // Initialize user document - this is a LOGIN EVENT, so update updatedAt
       try {
-        await initializeUserDocument(userData.name, userData.email);
+        await initializeUserDocument(userData.name, userData.email, true); // true = login event
+        console.log('✅ Login: User document updated with login timestamp');
       } catch (error) {
-        console.warn('⚠️ Failed to initialize user document:', error);
+        console.warn('⚠️ Failed to initialize user document during login:', error);
       }
       
       setUser(userData);
@@ -139,11 +140,12 @@ export const useAuth = () => {
       // Track successful signup
       trackUserSignup('email', userData);
       
-      // Initialize user document in Firebase
+      // Initialize user document - this is a SIGNUP EVENT, so update updatedAt
       try {
-        await initializeUserDocument(userData.name, userData.email);
+        await initializeUserDocument(userData.name, userData.email, true); // true = signup event
+        console.log('✅ Signup: User document created with timestamps');
       } catch (error) {
-        console.warn('⚠️ Failed to initialize user document:', error);
+        console.warn('⚠️ Failed to initialize user document during signup:', error);
       }
       
       setUser(userData);
@@ -194,11 +196,12 @@ export const useAuth = () => {
       // Track successful Google sign-in
       trackUserLogin('google', userData);
       
-      // Initialize user document in Firebase
+      // Initialize user document - this is a LOGIN EVENT, so update updatedAt
       try {
-        await initializeUserDocument(userData.name, userData.email);
+        await initializeUserDocument(userData.name, userData.email, true); // true = login event
+        console.log('✅ Google Login: User document updated with login timestamp');
       } catch (error) {
-        console.warn('⚠️ Failed to initialize user document:', error);
+        console.warn('⚠️ Failed to initialize user document during Google login:', error);
       }
       
       setUser(userData);

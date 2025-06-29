@@ -26,51 +26,61 @@ export interface UserData {
   applications: JobApplication[];
   lastResumeUpdate: Date;
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt: Date; // Only updated at login and when user profile changes
+  lastLoginAt: Date; // Track last login separately
 }
 
-// Initialize or get user document - only update updatedAt when data actually changes
-export const initializeUserDocument = async (name: string, email: string): Promise<void> => {
+// Initialize or get user document - only update updatedAt during login/signup
+export const initializeUserDocument = async (name: string, email: string, isLogin: boolean = true): Promise<void> => {
   try {
     const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated - cannot initialize user document');
     }
 
-    console.log('🔧 Checking user document for:', user.uid);
+    console.log('🔧 Initializing user document for:', user.uid, isLogin ? '(Login)' : '(Data Access)');
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
     
     if (!userDoc.exists()) {
-      // Create new user document
+      // Create new user document (first-time signup)
       const userData: UserData = {
         name,
         email,
-        resumeData: null, // Parsed resume data
+        resumeData: null,
         applications: [],
         lastResumeUpdate: new Date(),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        lastLoginAt: new Date()
       };
       
       await setDoc(userDocRef, userData);
-      console.log('✅ User document created successfully');
+      console.log('✅ User document created successfully (signup)');
     } else {
-      // Check if name or email have actually changed
       const existingData = userDoc.data() as UserData;
-      const hasChanges = existingData.name !== name || existingData.email !== email;
       
-      if (hasChanges) {
-        // Only update if there are actual changes
-        await updateDoc(userDocRef, {
-          name,
-          email,
-          updatedAt: new Date()
-        });
-        console.log('✅ User document updated with changes - name or email modified');
+      if (isLogin) {
+        // Update login time and profile data only during actual login
+        const hasProfileChanges = existingData.name !== name || existingData.email !== email;
+        
+        const updateData: Partial<UserData> = {
+          lastLoginAt: new Date()
+        };
+        
+        if (hasProfileChanges) {
+          updateData.name = name;
+          updateData.email = email;
+          updateData.updatedAt = new Date();
+          console.log('✅ User document updated - profile changes detected during login');
+        } else {
+          console.log('✅ User document - login time updated only (no profile changes)');
+        }
+        
+        await updateDoc(userDocRef, updateData);
       } else {
-        console.log('✅ User document exists and is up to date - no updatedAt change needed');
+        console.log('✅ User document accessed - no updatedAt change (not a login)');
       }
     }
   } catch (error) {
@@ -79,8 +89,8 @@ export const initializeUserDocument = async (name: string, email: string): Promi
   }
 };
 
-// Save resume data with 1-week device storage + Firestore
-export const saveResumeToFirebase = async (resumeData: ResumeData): Promise<string> => {
+// Save resume data with 1-week device storage + Firestore (NO updatedAt change unless specified)
+export const saveResumeToFirebase = async (resumeData: ResumeData, updateUserTimestamp: boolean = false): Promise<string> => {
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -102,12 +112,18 @@ export const saveResumeToFirebase = async (resumeData: ResumeData): Promise<stri
       throw new Error('User document does not exist - please refresh and try again');
     }
 
-    // Save to Firestore
-    await updateDoc(userDocRef, {
+    // Prepare update data - only update lastResumeUpdate and optionally updatedAt
+    const updateData: Partial<UserData> = {
       resumeData: resumeData,
-      lastResumeUpdate: new Date(),
-      updatedAt: new Date()
-    });
+      lastResumeUpdate: new Date()
+    };
+    
+    if (updateUserTimestamp) {
+      updateData.updatedAt = new Date();
+      console.log('💾 Updating user timestamp due to significant resume changes');
+    }
+
+    await updateDoc(userDocRef, updateData);
     
     console.log('✅ Resume data saved to Firestore successfully');
     
@@ -138,7 +154,7 @@ export const saveResumeToFirebase = async (resumeData: ResumeData): Promise<stri
   }
 };
 
-// Load resume data with 1-week device storage priority
+// Load resume data with 1-week device storage priority (NO updatedAt change)
 export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
   try {
     // First try device storage (faster, includes 1-week storage)
@@ -187,7 +203,7 @@ export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
     const resumeData = userData.resumeData;
     
     if (resumeData && resumeData.name && resumeData.email) {
-      console.log('✅ Resume data loaded from Firestore:', resumeData);
+      console.log('✅ Resume data loaded from Firestore (NO updatedAt change)');
       
       // Store on device for 1 week
       DeviceStorage.store(STORAGE_KEYS.RESUME, resumeData);
@@ -228,8 +244,8 @@ export const loadResumeFromFirebase = async (): Promise<ResumeData | null> => {
   }
 };
 
-// Update existing resume data with device storage
-export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<void> => {
+// Update existing resume data with device storage (NO updatedAt change unless specified)
+export const updateResumeInFirebase = async (resumeData: ResumeData, updateUserTimestamp: boolean = false): Promise<void> => {
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -251,13 +267,20 @@ export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<vo
       throw new Error('User document does not exist - please refresh and try again');
     }
     
-    await updateDoc(userDocRef, {
+    // Prepare update data
+    const updateData: Partial<UserData> = {
       resumeData: resumeData,
-      lastResumeUpdate: new Date(),
-      updatedAt: new Date()
-    });
+      lastResumeUpdate: new Date()
+    };
     
-    console.log('✅ Resume data updated in Firestore');
+    if (updateUserTimestamp) {
+      updateData.updatedAt = new Date();
+      console.log('🔄 Updating user timestamp due to significant resume changes');
+    }
+    
+    await updateDoc(userDocRef, updateData);
+    
+    console.log('✅ Resume data updated in Firestore (preserving updatedAt unless specified)');
     
     // Update device storage
     DeviceStorage.store(STORAGE_KEYS.RESUME, resumeData);
@@ -276,7 +299,7 @@ export const updateResumeInFirebase = async (resumeData: ResumeData): Promise<vo
   }
 };
 
-// Save application data with device storage
+// Save application data with device storage (NO updatedAt change)
 export const saveApplicationToFirebase = async (applicationData: JobApplication): Promise<string> => {
   try {
     const user = auth.currentUser;
@@ -306,12 +329,12 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
     
     applications.push(applicationWithId);
     
+    // Only update applications array, NOT the user's updatedAt
     await updateDoc(userDocRef, {
-      applications,
-      updatedAt: new Date()
+      applications
     });
     
-    console.log('✅ Application saved to Firestore');
+    console.log('✅ Application saved to Firestore (user updatedAt preserved)');
     
     // Store on device for 1 week
     DeviceStorage.store(STORAGE_KEYS.APPLICATION, applicationData);
@@ -333,7 +356,7 @@ export const saveApplicationToFirebase = async (applicationData: JobApplication)
   }
 };
 
-// Load application data with device storage priority
+// Load application data with device storage priority (NO updatedAt change)
 export const loadApplicationFromFirebase = async (): Promise<JobApplication | null> => {
   try {
     // First try device storage
@@ -356,7 +379,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
       return null;
     }
 
-    console.log('📋 Loading application from Firestore...');
+    console.log('📋 Loading application from Firestore (NO updatedAt change)...');
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -395,7 +418,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
       return currentTime > latestTime ? current : latest;
     });
 
-    console.log('✅ Application loaded from Firestore:', mostRecentApplication);
+    console.log('✅ Application loaded from Firestore (user updatedAt preserved)');
     
     // Store on device for 1 week
     DeviceStorage.store(STORAGE_KEYS.APPLICATION, mostRecentApplication);
@@ -431,7 +454,7 @@ export const loadApplicationFromFirebase = async (): Promise<JobApplication | nu
   }
 };
 
-// Update existing application data with device storage
+// Update existing application data with device storage (NO user updatedAt change)
 export const updateApplicationInFirebase = async (applicationData: JobApplication): Promise<void> => {
   try {
     const user = auth.currentUser;
@@ -471,12 +494,12 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
       return app;
     });
     
+    // Only update applications array, NOT the user's updatedAt
     await updateDoc(userDocRef, {
-      applications: updatedApplications,
-      updatedAt: new Date()
+      applications: updatedApplications
     });
     
-    console.log('✅ Application updated in Firestore');
+    console.log('✅ Application updated in Firestore (user updatedAt preserved)');
     
     // Update device storage
     DeviceStorage.store(STORAGE_KEYS.APPLICATION, applicationData);
@@ -495,7 +518,7 @@ export const updateApplicationInFirebase = async (applicationData: JobApplicatio
   }
 };
 
-// Get user data (for dashboard/profile views)
+// Get user data (for dashboard/profile views) - NO updatedAt change
 export const getUserData = async (): Promise<UserData | null> => {
   try {
     const user = auth.currentUser;
@@ -504,7 +527,7 @@ export const getUserData = async (): Promise<UserData | null> => {
       return null;
     }
 
-    console.log('👤 Loading user data from Firestore:', user.uid);
+    console.log('👤 Loading user data from Firestore (NO updatedAt change):', user.uid);
     
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -515,7 +538,7 @@ export const getUserData = async (): Promise<UserData | null> => {
     }
 
     const userData = userDoc.data() as UserData;
-    console.log('✅ User data loaded from Firestore:', userData);
+    console.log('✅ User data loaded from Firestore (user updatedAt preserved)');
     
     return userData;
   } catch (error) {

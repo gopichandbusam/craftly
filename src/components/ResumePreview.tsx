@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ResumeData } from '../types';
 import { trackResumeEdit, trackFeatureUsage } from '../services/analytics';
+import { updateResumeInFirebase } from '../services/firebaseStorage';
 
 interface ResumePreviewProps {
   resumeData: ResumeData;
@@ -31,6 +32,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
   const [newSkill, setNewSkill] = useState('');
   const [newExperience, setNewExperience] = useState('');
   const [newEducation, setNewEducation] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const isDefaultValue = (field: string, value: string): boolean => {
     const defaults: Record<string, string> = {
@@ -75,11 +77,27 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
     return categories;
   };
 
-  const handleSavePersonal = () => {
-    const updatedData = { ...resumeData, ...editData };
-    onResumeUpdate(updatedData);
-    setIsEditingPersonal(false);
-    trackResumeEdit('personal', 'edit');
+  const handleSavePersonal = async () => {
+    setIsSaving(true);
+    try {
+      const updatedData = { ...resumeData, ...editData };
+      
+      // Determine if this is a major change that should update user timestamp
+      const isMajorChange = resumeData.name !== editData.name || resumeData.email !== editData.email;
+      
+      // Update in Firebase with appropriate timestamp handling
+      await updateResumeInFirebase(updatedData, isMajorChange);
+      
+      onResumeUpdate(updatedData);
+      setIsEditingPersonal(false);
+      trackResumeEdit('personal', 'edit');
+      
+      console.log(isMajorChange ? '✅ Major change: User timestamp updated' : '✅ Minor change: Only resume data updated');
+    } catch (error) {
+      console.error('❌ Error saving personal data:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelPersonal = () => {
@@ -87,11 +105,25 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
     setIsEditingPersonal(false);
   };
 
-  const handleSaveSkills = () => {
-    onResumeUpdate({ ...resumeData, skills: editData.skills });
-    setIsEditingSkills(false);
-    setNewSkill('');
-    trackResumeEdit('skills', 'edit');
+  const handleSaveSkills = async () => {
+    setIsSaving(true);
+    try {
+      const updatedData = { ...resumeData, skills: editData.skills };
+      
+      // Skills changes are typically minor updates
+      await updateResumeInFirebase(updatedData, false);
+      
+      onResumeUpdate(updatedData);
+      setIsEditingSkills(false);
+      setNewSkill('');
+      trackResumeEdit('skills', 'edit');
+      
+      console.log('✅ Skills updated: Resume data only (no user timestamp change)');
+    } catch (error) {
+      console.error('❌ Error saving skills:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddSkill = () => {
@@ -113,11 +145,25 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
     trackResumeEdit('skills', 'remove');
   };
 
-  const handleSaveExperience = () => {
-    onResumeUpdate({ ...resumeData, experience: editData.experience });
-    setIsEditingExperience(false);
-    setNewExperience('');
-    trackResumeEdit('experience', 'edit');
+  const handleSaveExperience = async () => {
+    setIsSaving(true);
+    try {
+      const updatedData = { ...resumeData, experience: editData.experience };
+      
+      // Experience changes are typically minor updates
+      await updateResumeInFirebase(updatedData, false);
+      
+      onResumeUpdate(updatedData);
+      setIsEditingExperience(false);
+      setNewExperience('');
+      trackResumeEdit('experience', 'edit');
+      
+      console.log('✅ Experience updated: Resume data only (no user timestamp change)');
+    } catch (error) {
+      console.error('❌ Error saving experience:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddExperience = () => {
@@ -139,11 +185,25 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
     trackResumeEdit('experience', 'remove');
   };
 
-  const handleSaveEducation = () => {
-    onResumeUpdate({ ...resumeData, education: editData.education });
-    setIsEditingEducation(false);
-    setNewEducation('');
-    trackResumeEdit('education', 'edit');
+  const handleSaveEducation = async () => {
+    setIsSaving(true);
+    try {
+      const updatedData = { ...resumeData, education: editData.education };
+      
+      // Education changes are typically minor updates
+      await updateResumeInFirebase(updatedData, false);
+      
+      onResumeUpdate(updatedData);
+      setIsEditingEducation(false);
+      setNewEducation('');
+      trackResumeEdit('education', 'edit');
+      
+      console.log('✅ Education updated: Resume data only (no user timestamp change)');
+    } catch (error) {
+      console.error('❌ Error saving education:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddEducation = () => {
@@ -221,7 +281,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                 trackFeatureUsage('edit_personal_info');
               }
             }}
-            className="p-2 text-gray-500 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+            disabled={isSaving}
+            className="p-2 text-gray-500 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 disabled:opacity-50"
           >
             {isEditingPersonal ? <X size={16} /> : <Edit3 size={16} />}
           </button>
@@ -237,6 +298,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   value={editData.name}
                   onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  disabled={isSaving}
                 />
               </div>
               <div>
@@ -246,6 +308,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   value={editData.email}
                   onChange={(e) => setEditData({ ...editData, email: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  disabled={isSaving}
                 />
               </div>
               <div>
@@ -255,6 +318,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   value={editData.phone}
                   onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  disabled={isSaving}
                 />
               </div>
               <div>
@@ -264,6 +328,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   value={editData.location}
                   onChange={(e) => setEditData({ ...editData, location: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  disabled={isSaving}
                 />
               </div>
             </div>
@@ -275,22 +340,37 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                 onChange={(e) => setEditData({ ...editData, linkedin: e.target.value })}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
                 placeholder="e.g., johndoe"
+                disabled={isSaving}
               />
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={handleSavePersonal}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center"
+                disabled={isSaving}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save size={16} className="mr-1" />
-                Save
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="mr-1" />
+                    Save
+                  </>
+                )}
               </button>
               <button
                 onClick={handleCancelPersonal}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                disabled={isSaving}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
+            </div>
+            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+              💡 Name and email changes update your profile timestamp. Other changes only update resume data.
             </div>
           </div>
         ) : (
@@ -388,7 +468,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   trackFeatureUsage('edit_skills');
                 }
               }}
-              className="p-2 text-gray-500 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50"
+              disabled={isSaving}
+              className="p-2 text-gray-500 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50 disabled:opacity-50"
             >
               {isEditingSkills ? <X size={16} /> : <Edit3 size={16} />}
             </button>
@@ -424,7 +505,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   <span>{skill}</span>
                   <button
                     onClick={() => handleRemoveSkill(index)}
-                    className="ml-2 text-purple-600 hover:text-purple-800"
+                    disabled={isSaving}
+                    className="ml-2 text-purple-600 hover:text-purple-800 disabled:opacity-50"
                   >
                     <X size={12} />
                   </button>
@@ -439,10 +521,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                 placeholder="Add new skill..."
                 className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-300 focus:border-transparent"
                 onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                disabled={isSaving}
               />
               <button
                 onClick={handleAddSkill}
-                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors"
+                disabled={isSaving}
+                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
               >
                 Add
               </button>
@@ -450,10 +534,20 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
             <div className="flex space-x-2">
               <button
                 onClick={handleSaveSkills}
-                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center"
+                disabled={isSaving}
+                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save size={16} className="mr-1" />
-                Save
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="mr-1" />
+                    Save
+                  </>
+                )}
               </button>
               <button
                 onClick={() => {
@@ -461,7 +555,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   setIsEditingSkills(false);
                   setNewSkill('');
                 }}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                disabled={isSaving}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -535,7 +630,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   trackFeatureUsage('edit_experience');
                 }
               }}
-              className="p-2 text-gray-500 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50"
+              disabled={isSaving}
+              className="p-2 text-gray-500 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50 disabled:opacity-50"
             >
               {isEditingExperience ? <X size={16} /> : <Edit3 size={16} />}
             </button>
@@ -577,10 +673,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                     }}
                     className="w-full bg-transparent border-none outline-none resize-none text-sm text-gray-700 leading-relaxed pr-8"
                     rows={3}
+                    disabled={isSaving}
                   />
                   <button
                     onClick={() => handleRemoveExperience(index)}
-                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    disabled={isSaving}
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 disabled:opacity-50"
                   >
                     <X size={16} />
                   </button>
@@ -594,10 +692,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                 placeholder="Add new experience entry..."
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-300 focus:border-transparent resize-none"
                 rows={3}
+                disabled={isSaving}
               />
               <button
                 onClick={handleAddExperience}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                disabled={isSaving}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
               >
                 Add Experience
               </button>
@@ -605,10 +705,20 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
             <div className="flex space-x-2">
               <button
                 onClick={handleSaveExperience}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center"
+                disabled={isSaving}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save size={16} className="mr-1" />
-                Save
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="mr-1" />
+                    Save
+                  </>
+                )}
               </button>
               <button
                 onClick={() => {
@@ -616,7 +726,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   setIsEditingExperience(false);
                   setNewExperience('');
                 }}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                disabled={isSaving}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -670,7 +781,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   trackFeatureUsage('edit_education');
                 }
               }}
-              className="p-2 text-gray-500 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+              disabled={isSaving}
+              className="p-2 text-gray-500 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 disabled:opacity-50"
             >
               {isEditingEducation ? <X size={16} /> : <Edit3 size={16} />}
             </button>
@@ -712,10 +824,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                     }}
                     className="w-full bg-transparent border-none outline-none resize-none text-sm text-gray-700 leading-relaxed pr-8"
                     rows={2}
+                    disabled={isSaving}
                   />
                   <button
                     onClick={() => handleRemoveEducation(index)}
-                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    disabled={isSaving}
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 disabled:opacity-50"
                   >
                     <X size={16} />
                   </button>
@@ -729,10 +843,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                 placeholder="Add new education entry..."
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent resize-none"
                 rows={2}
+                disabled={isSaving}
               />
               <button
                 onClick={handleAddEducation}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                disabled={isSaving}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
                 Add Education
               </button>
@@ -740,10 +856,20 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
             <div className="flex space-x-2">
               <button
                 onClick={handleSaveEducation}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center"
+                disabled={isSaving}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save size={16} className="mr-1" />
-                Save
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="mr-1" />
+                    Save
+                  </>
+                )}
               </button>
               <button
                 onClick={() => {
@@ -751,7 +877,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ resumeData, onResumeUpdat
                   setIsEditingEducation(false);
                   setNewEducation('');
                 }}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                disabled={isSaving}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
