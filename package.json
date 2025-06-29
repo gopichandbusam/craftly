@@ -3,22 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "AI-powered resume parsing and cover letter generation platform",
+  "description": "Optimized AI-powered resume parsing and cover letter generation",
   "author": "Gopichand Busam",
-  "license": "MIT",
-  "keywords": ["ai", "resume", "cover-letter", "job-application", "firebase", "react"],
-  "homepage": "https://craftly.gopichand.me",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-username/craftly-ai-resume.git"
-  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "type-check": "tsc --noEmit",
-    "build:analyze": "vite build --mode analyze"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",
@@ -26,7 +17,6 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.3",
     "jspdf": "^2.5.1",
-    "html2canvas": "^1.4.1",
     "@google/generative-ai": "^0.21.0",
     "pdfjs-dist": "^4.0.379",
     "firebase": "^10.7.1"
@@ -47,9 +37,5 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
   }
 }
