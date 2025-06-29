@@ -1,0 +1,632 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-float-slow {
+    animation: float 8s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulseSlow 4s ease-in-out infinite;
+  }
+  
+  .animate-spin-slow {
+    animation: spinSlow 20s linear infinite;
+  }
+  
+  .animate-breathe {
+    animation: breathe 6s ease-in-out infinite;
+  }
+  
+  /* Morphing Squircle Animations */
+  .animate-morph-squircle {
+    animation: morphSquircle 8s ease-in-out infinite;
+  }
+  
+  .animate-morph-squircle-delayed {
+    animation: morphSquircle 8s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+  
+  .animate-morph-squircle-slow {
+    animation: morphSquircle 12s ease-in-out infinite;
+    animation-delay: 4s;
+  }
+  
+  /* Morphing Ring Animations */
+  .animate-morph-ring {
+    animation: morphRing 10s ease-in-out infinite, spinSlow 25s linear infinite;
+  }
+  
+  .animate-morph-ring-reverse {
+    animation: morphRing 10s ease-in-out infinite, spinSlow 30s linear infinite reverse;
+    animation-delay: 3s;
+  }
+  
+  .animate-morph-ring-slow {
+    animation: morphRing 15s ease-in-out infinite, spinSlow 35s linear infinite;
+    animation-delay: 6s;
+  }
+  
+  /* Corner Morphing Animations */
+  .animate-morph-corner-1 {
+    animation: morphCorner1 6s ease-in-out infinite;
+  }
+  
+  .animate-morph-corner-2 {
+    animation: morphCorner2 6s ease-in-out infinite;
+    animation-delay: 1.5s;
+  }
+  
+  .animate-morph-corner-3 {
+    animation: morphCorner3 6s ease-in-out infinite;
+    animation-delay: 3s;
+  }
+  
+  .animate-morph-corner-4 {
+    animation: morphCorner4 6s ease-in-out infinite;
+    animation-delay: 4.5s;
+  }
+  
+  /* Energy Flow Animations - Particles moving toward center */
+  .animate-energy-flow-1 {
+    animation: energyFlow1 3s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-1-delayed {
+    animation: energyFlow1 3s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+  
+  .animate-energy-flow-1-delayed-2 {
+    animation: energyFlow1 3s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+  
+  .animate-energy-flow-2 {
+    animation: energyFlow2 3s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-2-delayed {
+    animation: energyFlow2 3s ease-in-out infinite;
+    animation-delay: 0.7s;
+  }
+  
+  .animate-energy-flow-2-delayed-2 {
+    animation: energyFlow2 3s ease-in-out infinite;
+    animation-delay: 1.4s;
+  }
+  
+  .animate-energy-flow-3 {
+    animation: energyFlow3 3s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-3-delayed {
+    animation: energyFlow3 3s ease-in-out infinite;
+    animation-delay: 0.3s;
+  }
+  
+  .animate-energy-flow-3-delayed-2 {
+    animation: energyFlow3 3s ease-in-out infinite;
+    animation-delay: 0.9s;
+  }
+  
+  .animate-energy-flow-4 {
+    animation: energyFlow4 3s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-4-delayed {
+    animation: energyFlow4 3s ease-in-out infinite;
+    animation-delay: 0.6s;
+  }
+  
+  .animate-energy-flow-4-delayed-2 {
+    animation: energyFlow4 3s ease-in-out infinite;
+    animation-delay: 1.2s;
+  }
+  
+  /* Side energy flows */
+  .animate-energy-flow-left {
+    animation: energyFlowLeft 2.5s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-left-delayed {
+    animation: energyFlowLeft 2.5s ease-in-out infinite;
+    animation-delay: 0.8s;
+  }
+  
+  .animate-energy-flow-right {
+    animation: energyFlowRight 2.5s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-right-delayed {
+    animation: energyFlowRight 2.5s ease-in-out infinite;
+    animation-delay: 0.4s;
+  }
+  
+  .animate-energy-flow-top {
+    animation: energyFlowTop 2.8s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-top-delayed {
+    animation: energyFlowTop 2.8s ease-in-out infinite;
+    animation-delay: 0.9s;
+  }
+  
+  .animate-energy-flow-bottom {
+    animation: energyFlowBottom 2.8s ease-in-out infinite;
+  }
+  
+  .animate-energy-flow-bottom-delayed {
+    animation: energyFlowBottom 2.8s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+  
+  /* Data Stream Animations */
+  .animate-data-stream-1 {
+    animation: dataStream 4s ease-in-out infinite;
+  }
+  
+  .animate-data-stream-2 {
+    animation: dataStream 4s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+  
+  .animate-data-stream-3 {
+    animation: dataStream 4s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+  
+  .animate-data-stream-vertical-1 {
+    animation: dataStreamVertical 5s ease-in-out infinite;
+  }
+  
+  .animate-data-stream-vertical-2 {
+    animation: dataStreamVertical 5s ease-in-out infinite;
+    animation-delay: 2.5s;
+  }
+  
+  /* AI Processing Pulse */
+  .animate-ai-pulse {
+    animation: aiPulse 2s ease-in-out infinite;
+  }
+  
+  .animate-ai-pulse-delayed {
+    animation: aiPulse 2s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+  
+  .animate-ai-pulse-delayed-2 {
+    animation: aiPulse 2s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+  
+  .animate-ai-pulse-delayed-3 {
+    animation: aiPulse 2s ease-in-out infinite;
+    animation-delay: 1.5s;
+  }
+}
+
+/* Base Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(2deg); }
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* Morphing Squircle Animations */
+@keyframes morphSquircle {
+  0% { 
+    border-radius: 20% 20% 20% 20%;
+    transform: rotate(0deg) scale(1);
+  }
+  25% { 
+    border-radius: 40% 20% 60% 20%;
+    transform: rotate(90deg) scale(1.05);
+  }
+  50% { 
+    border-radius: 60% 40% 40% 60%;
+    transform: rotate(180deg) scale(1);
+  }
+  75% { 
+    border-radius: 20% 60% 20% 40%;
+    transform: rotate(270deg) scale(0.95);
+  }
+  100% { 
+    border-radius: 20% 20% 20% 20%;
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+/* Morphing Ring Animations */
+@keyframes morphRing {
+  0% { 
+    border-radius: 30% 30% 30% 30%;
+    opacity: 0.3;
+  }
+  25% { 
+    border-radius: 50% 30% 50% 30%;
+    opacity: 0.6;
+  }
+  50% { 
+    border-radius: 60% 50% 40% 50%;
+    opacity: 0.4;
+  }
+  75% { 
+    border-radius: 30% 60% 30% 40%;
+    opacity: 0.7;
+  }
+  100% { 
+    border-radius: 30% 30% 30% 30%;
+    opacity: 0.3;
+  }
+}
+
+/* Corner Morphing Animations */
+@keyframes morphCorner1 {
+  0%, 100% { 
+    border-radius: 50% 20% 50% 20%;
+    transform: scale(1) rotate(0deg);
+  }
+  50% { 
+    border-radius: 20% 50% 20% 50%;
+    transform: scale(1.2) rotate(180deg);
+  }
+}
+
+@keyframes morphCorner2 {
+  0%, 100% { 
+    border-radius: 20% 50% 20% 50%;
+    transform: scale(1) rotate(0deg);
+  }
+  50% { 
+    border-radius: 50% 20% 50% 20%;
+    transform: scale(1.3) rotate(-180deg);
+  }
+}
+
+@keyframes morphCorner3 {
+  0%, 100% { 
+    border-radius: 60% 30% 40% 70%;
+    transform: scale(1) rotate(0deg);
+  }
+  50% { 
+    border-radius: 30% 70% 60% 40%;
+    transform: scale(1.1) rotate(180deg);
+  }
+}
+
+@keyframes morphCorner4 {
+  0%, 100% { 
+    border-radius: 40% 60% 30% 70%;
+    transform: scale(1) rotate(0deg);
+  }
+  50% { 
+    border-radius: 70% 30% 60% 40%;
+    transform: scale(1.25) rotate(-180deg);
+  }
+}
+
+/* Energy Flow Animations - Particles moving toward center from corners */
+@keyframes energyFlow1 {
+  0% { 
+    transform: translate(0, 0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translate(20px, 20px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translate(140px, 140px) scale(1.2); 
+  }
+  100% { 
+    transform: translate(160px, 160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlow2 {
+  0% { 
+    transform: translate(0, 0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translate(-20px, 20px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translate(-140px, 140px) scale(1.2); 
+  }
+  100% { 
+    transform: translate(-160px, 160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlow3 {
+  0% { 
+    transform: translate(0, 0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translate(20px, -20px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translate(140px, -140px) scale(1.2); 
+  }
+  100% { 
+    transform: translate(160px, -160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlow4 {
+  0% { 
+    transform: translate(0, 0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translate(-20px, -20px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translate(-140px, -140px) scale(1.2); 
+  }
+  100% { 
+    transform: translate(-160px, -160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+/* Side Energy Flows */
+@keyframes energyFlowLeft {
+  0% { 
+    transform: translateX(0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translateX(30px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translateX(140px) scale(1.2); 
+  }
+  100% { 
+    transform: translateX(160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlowRight {
+  0% { 
+    transform: translateX(0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translateX(-30px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translateX(-140px) scale(1.2); 
+  }
+  100% { 
+    transform: translateX(-160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlowTop {
+  0% { 
+    transform: translateY(0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translateY(30px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translateY(140px) scale(1.2); 
+  }
+  100% { 
+    transform: translateY(160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+@keyframes energyFlowBottom {
+  0% { 
+    transform: translateY(0) scale(0.5); 
+    opacity: 0; 
+  }
+  20% { 
+    opacity: 1; 
+    transform: translateY(-30px) scale(1); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translateY(-140px) scale(1.2); 
+  }
+  100% { 
+    transform: translateY(-160px) scale(0); 
+    opacity: 0; 
+  }
+}
+
+/* Data Stream Animations */
+@keyframes dataStream {
+  0% { 
+    opacity: 0; 
+    transform: translateX(-100%) scaleX(0.3); 
+  }
+  25% { 
+    opacity: 0.8; 
+    transform: translateX(-25%) scaleX(1); 
+  }
+  75% { 
+    opacity: 0.8; 
+    transform: translateX(25%) scaleX(1); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: translateX(100%) scaleX(0.3); 
+  }
+}
+
+@keyframes dataStreamVertical {
+  0% { 
+    opacity: 0; 
+    transform: translateY(-100%) scaleY(0.3); 
+  }
+  25% { 
+    opacity: 0.6; 
+    transform: translateY(-25%) scaleY(1); 
+  }
+  75% { 
+    opacity: 0.6; 
+    transform: translateY(25%) scaleY(1); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: translateY(100%) scaleY(0.3); 
+  }
+}
+
+/* AI Processing Pulse */
+@keyframes aiPulse {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.6; 
+  }
+  50% { 
+    transform: scale(1.5); 
+    opacity: 1; 
+  }
+}
+
+/* Accessibility Enhancements */
+.high-contrast {
+  --text-color: #000;
+  --bg-color: #fff;
+  --border-color: #000;
+  --link-color: #0000ff;
+}
+
+.high-contrast * {
+  color: var(--text-color) !important;
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+.high-contrast a {
+  color: var(--link-color) !important;
+  text-decoration: underline !important;
+}
+
+.reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Font Size Controls */
+[data-font-size="small"] {
+  font-size: 14px;
+}
+
+[data-font-size="medium"] {
+  font-size: 16px;
+}
+
+[data-font-size="large"] {
+  font-size: 18px;
+}
+
+/* Focus Indicators */
+*:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.high-contrast *:focus {
+  outline: 3px solid #000 !important;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.high-contrast ::-webkit-scrollbar-thumb {
+  background: #000 !important;
+}
+
+/* Smooth transitions */
+* {
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  * {
+    background: white !important;
+    color: black !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+  
+  a {
+    text-decoration: underline !important;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+}

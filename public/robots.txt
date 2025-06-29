@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://craftly.gopichand.me/sitemap.xml
+
+# Block access to sensitive areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /node_modules/
+
+# Allow access to main areas
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+# Crawl-delay for politeness
+Crawl-delay: 1
